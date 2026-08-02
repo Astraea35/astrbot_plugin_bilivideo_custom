@@ -26,6 +26,7 @@ from .bilivideo.services.listener import DynamicListener
 from .bilivideo.services.renderer import DynamicCardRenderer
 from .bilivideo.subscription.scheduler import CheckScheduler
 from .bilivideo.tools import register_ai_tools
+from .bilivideo.webui import PluginWebUI
 
 
 class BiliVideoPlugin(Star):
@@ -33,6 +34,7 @@ class BiliVideoPlugin(Star):
 
     def __init__(self, context: Context, config: dict) -> None:
         super().__init__(context)
+        self.config = config
 
         # 1. 加载配置
         plugin_config = PluginConfig.from_mapping(config or {})
@@ -52,6 +54,9 @@ class BiliVideoPlugin(Star):
             raw_config=config,
             data_manager=self.data_manager,
         )
+
+        self.webui = PluginWebUI(self, context, self._services, data_dir)
+        self.webui.register()
 
         # 4. 从数据管理器恢复凭据
         saved_credential = self.data_manager.get_credential()
@@ -112,6 +117,34 @@ class BiliVideoPlugin(Star):
 
         login_state = "logged in" if self._services.is_logged_in() else "no SESSDATA"
         logger.info(f"BiliVideo plugin ready ({login_state})")
+
+    async def apply_runtime_config(self, config: PluginConfig) -> None:
+        """Apply settings that are safe to refresh without rebuilding the plugin."""
+        self._services.config = config
+        self._services.enable_miniapp_detect = config.enable_miniapp_detect
+        self._services.cooldown.update_window(config.user_cooldown_seconds)
+        self._services.orchestrator._config = config
+        self.dynamic_renderer.style = config.renderer_template
+
+        listener = self.dynamic_listener
+        listener.config = config
+        listener.interval_secs = config.interval_secs
+        listener.task_gap_secs = config.task_gap_secs
+        listener.dynamic_limit = config.dynamic_limit
+        listener.recent_cache_size = config.recent_dynamic_cache
+        listener.plain_push_template = config.plain_push_template
+        listener.plain_push_forward_template = config.plain_push_forward_template
+        listener.enable_ai_summary = config.enable_dynamic_ai_summary
+        listener.ai_summary_prompt = config.ai_summary_prompt
+
+        scheduler = self._services.scheduler
+        if scheduler is not None:
+            scheduler._interval = config.check_interval_minutes * 60
+            should_run = config.enable_auto_push
+            if should_run and not scheduler.is_running():
+                scheduler.start()
+            elif not should_run and scheduler.is_running():
+                await scheduler.stop()
 
     async def _on_subscription_notification_sent(self, _notification: object) -> None:
         """订阅通知发送成功回调，记录时间戳用于重连静默"""

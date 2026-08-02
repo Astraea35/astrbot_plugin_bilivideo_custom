@@ -151,5 +151,12 @@
     "items": {
       "enable_multi_platform": { "type": "bool", "default": false, "description": "多平台(YouTube/抖音)", "hint": "⚠️ 实验性，默认关闭。" }
     }
+  },
+  "webui": {
+    "description": "🖼️ 插件页面外观",
+    "type": "object",
+    "items": {
+      "background_image": { "type": "string", "default": "", "description": "插件页面背景图", "hint": "通过插件详情页的自定义 UI 上传；留空使用默认背景。" }
+    }
   }
 }
