@@ -128,11 +128,11 @@
     "type": "object",
     "items": {
       "access_mode": { "type": "string", "default": "all", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "总访问范围", "hint": "所有普通插件命令都需先通过此范围；白名单为空时全部拒绝，黑名单为空时全部允许。" },
-      "access_list": { "type": "list", "default": [], "description": "总访问名单", "hint": "逐项添加群号或用户 ID。名单会精确匹配当前会话或消息发送者。" },
+      "access_list": { "type": "string", "default": "", "description": "总访问名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。名单会精确匹配当前会话或消息发送者。" },
       "manual_summary_mode": { "type": "string", "default": "all", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "手动总结范围", "hint": "控制 /总结 和视频点播总结；此范围不能突破总访问范围。" },
-      "manual_summary_list": { "type": "list", "default": [], "description": "手动总结名单", "hint": "逐项添加群号或用户 ID。" },
+      "manual_summary_list": { "type": "string", "default": "", "description": "手动总结名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。" },
       "auto_summary_mode": { "type": "string", "default": "private_only", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "自动总结范围", "hint": "控制链接识别和订阅推送自动总结；不通过时订阅会自动改为仅推送提醒。" },
-      "auto_summary_list": { "type": "list", "default": [], "description": "自动总结名单", "hint": "逐项添加群号或用户 ID。" }
+      "auto_summary_list": { "type": "string", "default": "", "description": "自动总结名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。" }
     }
   },
   "search": {
@@ -160,4 +160,5 @@
     }
   }
 }
+
 
