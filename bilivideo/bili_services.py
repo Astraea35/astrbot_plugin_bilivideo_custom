@@ -115,6 +115,7 @@ class BiliVideoServices:
         # Subscription / scheduler (callback wired later by Star)
         self.subscription_manager = SubscriptionManager(data_dir)
         self.scheduler: CheckScheduler | None = None
+        self.dynamic_listener: object | None = None
 
         # Anti-spam
         self.cooldown = CooldownTracker(window_seconds=config.user_cooldown_seconds)

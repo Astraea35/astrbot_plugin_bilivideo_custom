@@ -6,7 +6,6 @@
       "debug_mode": { "type": "bool", "default": false, "description": "调试模式", "hint": "开启后输出 DEBUG 级别日志，正常使用请关闭" },
       "processing_timeout": { "type": "int", "default": 300, "min": 60, "max": 1800, "description": "单次总结超时(秒)", "hint": "下载 + 转写 + LLM 任意阶段超过此时长视为失败" },
       "user_cooldown_seconds": { "type": "int", "default": 8, "min": 0, "max": 600, "description": "用户冷却(秒)", "hint": "每个用户两次手动总结之间的最小间隔，设 0 关闭" },
-      "interval_secs": { "type": "int", "default": 300, "min": 10, "max": 3600, "description": "单个UP主动态检测周期(秒)", "hint": "每个UP主每隔此秒数检查一次新动态，建议不小于60秒" },
       "task_gap_secs": { "type": "int", "default": 20, "min": 1, "max": 120, "description": "相邻UP主任务最小间隔(秒)", "hint": "避免同时请求B站API触发风控" },
       "reconnect_silent": { "type": "bool", "default": false, "description": "重连静默模式", "hint": "启动时若长时间未成功推送，先静默一段时间消化积压动态" },
       "reconnect_silent_threshold_secs": { "type": "int", "default": 21600, "min": 60, "max": 86400, "description": "触发静默的闲置阈值(秒)", "hint": "距上次成功推送超过此秒数则触发静默，默认6小时" },
@@ -103,9 +102,9 @@
     "description": "📡 订阅推送",
     "type": "object",
     "items": {
-      "enable_auto_push": { "type": "bool", "default": false, "description": "启用定时推送", "hint": "开启后周期性检查订阅 UP 主新视频" },
-      "auto_push_summary": { "type": "bool", "default": true, "description": "推送时附带 AI 总结", "hint": "关闭后仅推送视频基本信息(节省 LLM 额度)" },
-      "check_interval_minutes": { "type": "int", "default": 10, "min": 5, "max": 1440, "description": "检查间隔(分钟)" },
+      "enable_auto_push": { "type": "bool", "default": false, "description": "启用自动检查与推送", "hint": "开启后统一检查订阅 UP 主的视频、动态和直播状态" },
+      "auto_push_summary": { "type": "bool", "default": true, "description": "视频推送时附带 AI 总结", "hint": "关闭后仅推送视频基本信息(节省 LLM 额度)" },
+      "check_interval_minutes": { "type": "int", "default": 10, "min": 5, "max": 1440, "description": "订阅检查间隔(分钟)", "hint": "视频、动态和直播均使用此间隔；默认 10 分钟" },
       "max_subscriptions": { "type": "int", "default": 20, "min": 1, "max": 100, "description": "每会话最大订阅数" },
       "sub_list_render_method": {
         "type": "string",
@@ -160,5 +159,3 @@
     }
   }
 }
-
-

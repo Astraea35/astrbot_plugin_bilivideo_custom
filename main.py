@@ -69,7 +69,7 @@ class BiliVideoPlugin(Star):
         self._services.scheduler = CheckScheduler(
             self._services.subscription_manager,
             lambda origin, sub: push_callback(self._services, origin, sub),
-            interval_seconds=plugin_config.check_interval_minutes * 60,
+            interval_seconds=plugin_config.subscription_check_interval_seconds,
         )
         if plugin_config.enable_auto_push:
             self._services.scheduler.start()
@@ -101,13 +101,18 @@ class BiliVideoPlugin(Star):
             renderer=self.dynamic_renderer,
             services=self._services,
         )
+        self._services.dynamic_listener = self.dynamic_listener
+        self._dynamic_listener_task: asyncio.Task[None] | None = None
 
         # 10. 配置重连静默
         self._configure_reconnect_silent(plugin_config)
 
-        # 11. 启动动态监听器后台任务
-        self._dynamic_listener_task = asyncio.create_task(self.dynamic_listener.start())
-        self._tag.info("动态订阅监听器已启动")
+        # 11. 与视频定时器共用自动检查开关
+        if plugin_config.enable_auto_push:
+            self._start_dynamic_listener()
+            self._tag.info("动态和直播订阅监听器已启动")
+        else:
+            self._tag.info("动态和直播订阅监听器已禁用")
 
         # 12. 注册 AI Function-call 工具
         try:
@@ -128,7 +133,7 @@ class BiliVideoPlugin(Star):
 
         listener = self.dynamic_listener
         listener.config = config
-        listener.interval_secs = config.interval_secs
+        listener.interval_secs = config.subscription_check_interval_seconds
         listener.task_gap_secs = config.task_gap_secs
         listener.dynamic_limit = config.dynamic_limit
         listener.recent_cache_size = config.recent_dynamic_cache
@@ -139,12 +144,37 @@ class BiliVideoPlugin(Star):
 
         scheduler = self._services.scheduler
         if scheduler is not None:
-            scheduler._interval = config.check_interval_minutes * 60
+            scheduler._interval = config.subscription_check_interval_seconds
             should_run = config.enable_auto_push
             if should_run and not scheduler.is_running():
                 scheduler.start()
             elif not should_run and scheduler.is_running():
                 await scheduler.stop()
+
+            if should_run:
+                self._start_dynamic_listener()
+            else:
+                await self._stop_dynamic_listener()
+
+    def _start_dynamic_listener(self) -> None:
+        if self._dynamic_listener_task and not self._dynamic_listener_task.done():
+            return
+        self._dynamic_listener_task = asyncio.create_task(self.dynamic_listener.start())
+
+    async def _stop_dynamic_listener(self) -> None:
+        task = self._dynamic_listener_task
+        if task is None or task.done():
+            self._dynamic_listener_task = None
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            self._tag.info("动态监听器已取消")
+        except Exception as exc:
+            self._tag.error(f"动态监听器停止异常: {exc}")
+        finally:
+            self._dynamic_listener_task = None
 
     async def _on_subscription_notification_sent(self, _notification: object) -> None:
         """订阅通知发送成功回调，记录时间戳用于重连静默"""
@@ -173,7 +203,7 @@ class BiliVideoPlugin(Star):
             return
 
         uid_count = len(self.dynamic_listener._build_uid_targets())
-        silent_duration = config.interval_secs + config.task_gap_secs * uid_count + 60
+        silent_duration = config.subscription_check_interval_seconds + config.task_gap_secs * uid_count + 60
         silent_until_ts = now_ts + silent_duration
         self.dispatcher.set_silent_until_ts(silent_until_ts)
         self._tag.warning(f"检测到长时间未成功推送订阅通知（{idle_secs} 秒），进入静默模式 {silent_duration} 秒。")
@@ -333,14 +363,7 @@ class BiliVideoPlugin(Star):
     # ======================== 生命周期 ========================
 
     async def terminate(self) -> None:
-        if hasattr(self, "_dynamic_listener_task") and self._dynamic_listener_task:
-            self._dynamic_listener_task.cancel()
-            try:
-                await self._dynamic_listener_task
-            except asyncio.CancelledError:
-                self._tag.info("动态监听器已取消")
-            except Exception as e:
-                self._tag.error(f"动态监听器停止异常: {e}")
+        await self._stop_dynamic_listener()
 
         await self._services.shutdown()
         logger.info("BiliVideo plugin terminated")

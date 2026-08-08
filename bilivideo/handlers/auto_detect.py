@@ -322,6 +322,9 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
     # ==================== 🛠️ 抖音多开关高融合全面适配识别 ====================
     dy_match = DY_SHORT_RE.search(msg_str) or DY_LONG_RE.search(msg_str)
     if dy_match:
+        if not services.config.enable_multi_platform:
+            return
+
         raw_target_url = dy_match.group(1)
         data = await fetch_douyin_metadata(services, raw_target_url)
         if not data:

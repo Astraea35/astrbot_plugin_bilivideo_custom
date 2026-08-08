@@ -14,6 +14,14 @@ def test_defaults() -> None:
     assert "总结" in cfg.trigger_keywords
 
 
+def test_subscription_interval_is_shared_by_all_update_types() -> None:
+    cfg = PluginConfig.from_mapping(
+        {"check_interval_minutes": 12, "interval_secs": 30}
+    )
+
+    assert cfg.subscription_check_interval_seconds == 12 * 60
+
+
 def test_invalid_enum_falls_back() -> None:
     cfg = PluginConfig.from_mapping({"note_style": "invalid"})
     assert cfg.note_style == "professional"
@@ -101,4 +109,3 @@ def test_legacy_access_fields_are_migrated() -> None:
     assert cfg.access_list == ("100", "200")
     assert cfg.manual_summary_mode == "blacklist"
     assert cfg.manual_summary_list == ("300",)
-

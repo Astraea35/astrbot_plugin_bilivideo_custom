@@ -182,7 +182,6 @@ class PluginConfig:
     dynamic_summary_model: str = ""
     enable_multimodal_dynamic_summary: bool = False
     reconnect_silent: bool = False
-    interval_secs: int = 300
     task_gap_secs: int = 20
     reconnect_silent_threshold_secs: int = RECONNECT_SILENT_THRESHOLD_SECS
     recent_dynamic_cache: int = RECENT_DYNAMIC_CACHE
@@ -208,6 +207,11 @@ class PluginConfig:
     # ------------------------------------------------------------------
     # parsing / accessors
     # ------------------------------------------------------------------
+    @property
+    def subscription_check_interval_seconds(self) -> int:
+        """Return the shared polling interval for every subscription update type."""
+        return self.check_interval_minutes * 60
+
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PluginConfig:
         flat = _flatten_groups(raw)
@@ -277,7 +281,6 @@ class PluginConfig:
             dynamic_summary_model=_coerce_str(flat.get("dynamic_summary_model"), ""),
             enable_multimodal_dynamic_summary=_coerce_bool(flat.get("enable_multimodal_dynamic_summary"), False),
             reconnect_silent=_coerce_bool(flat.get("reconnect_silent"), False),
-            interval_secs=_coerce_int(flat.get("interval_secs"), 300, lo=10, hi=3600),
             task_gap_secs=_coerce_int(flat.get("task_gap_secs"), 20, lo=1, hi=120),
             reconnect_silent_threshold_secs=_coerce_int(flat.get("reconnect_silent_threshold_secs"), RECONNECT_SILENT_THRESHOLD_SECS, lo=60),
             recent_dynamic_cache=_coerce_int(flat.get("recent_dynamic_cache"), RECENT_DYNAMIC_CACHE, lo=1, hi=20),
@@ -310,4 +313,3 @@ class PluginConfig:
 
     def has_llm_credentials(self) -> bool:
         return bool(self.llm_api_base and self.llm_api_key)
-

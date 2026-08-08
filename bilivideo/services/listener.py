@@ -35,6 +35,9 @@ from ..llm.astrbot_provider import AstrbotProvider
 from .dispatcher import SubscriptionNotificationDispatcher, SubscriptionNotification
 from .renderer import DynamicCardRenderer
 
+DYNAMIC_DETAIL_TYPES = frozenset({"图文", "转发", "专栏", "抽奖", "转发抽奖"})
+DYNAMIC_SUB_TYPES = DYNAMIC_DETAIL_TYPES | {"动态"}
+
 
 class DynamicListener:
     """动态监听器核心"""
@@ -57,7 +60,7 @@ class DynamicListener:
         self.renderer = renderer
         self.services = services
 
-        self.interval_secs = config.interval_secs
+        self.interval_secs = config.subscription_check_interval_seconds
         self.task_gap_secs = config.task_gap_secs
         self.dynamic_limit = config.dynamic_limit
         self.recent_cache_size = config.recent_dynamic_cache
@@ -151,16 +154,11 @@ class DynamicListener:
         if not targets:
             return
 
-        # ====== 按需拉取：判断是否需要视频/动态数据 ======
-        need_video = any(
-            "视频" in getattr(sub, "sub_types", ["视频"])
+        # ====== 按需拉取：仅在订阅了任意动态类型时请求动态流 ======
+        need_dynamic_data = any(
+            self._needs_dynamic_data(sub)
             for _, sub in targets
         )
-        need_dynamic = any(
-            "动态" in getattr(sub, "sub_types", [])
-            for _, sub in targets
-        )
-        need_dynamic_data = need_video or need_dynamic
 
         # 判断是否需要直播
         should_check_live = any(
@@ -179,9 +177,27 @@ class DynamicListener:
 
         for origin, sub in targets:
             try:
-                await self._check_single_up(origin, sub, dyn, live_room, need_video, need_dynamic)
+                await self._check_single_up(origin, sub, dyn, live_room)
             except Exception as e:
                 logger.error(f"处理订阅者 {origin} 的 UP主 {sub.mid} 失败: {e}")
+
+    async def check_subscription_once(self, origin: str, sub: Subscription) -> tuple[int, bool]:
+        """Run an immediate dynamic/live check for one subscription."""
+        try:
+            uid = int(sub.mid)
+        except (TypeError, ValueError):
+            return 0, False
+
+        dyn = None
+        if self._needs_dynamic_data(sub):
+            dyn = await endpoints.get_latest_dynamics(self.bili_client, uid)
+
+        live_room = None
+        sub_types = self._sub_types(sub)
+        if "直播" in sub_types and "live" not in sub.filter_types:
+            live_room = await endpoints.get_live_info_by_uids(self.bili_client, [uid])
+
+        return await self._check_single_up(origin, sub, dyn, live_room)
 
     async def _check_single_up(
         self,
@@ -189,14 +205,13 @@ class DynamicListener:
         sub: Subscription,
         dyn: Optional[Dict[str, Any]],
         live_room: Optional[Dict[str, Any]],
-        need_video: bool,
-        need_dynamic: bool,
-    ):
+    ) -> tuple[int, bool]:
         uid = int(sub.mid)
         has_new_dynamic = False
+        dynamic_count = 0
 
-        # ---- 动态/视频处理（仅在需要时） ----
-        if dyn and (need_video or need_dynamic):
+        # ---- 动态处理（仅在订阅了相应类型时） ----
+        if dyn and self._needs_dynamic_data(sub):
             try:
                 result_list = self._parse_and_filter_dynamics(dyn, sub)  # 白名单过滤
                 if result_list:
@@ -205,6 +220,7 @@ class DynamicListener:
                         if result.has_payload():
                             if sent < self.dynamic_limit:
                                 sent += 1
+                                dynamic_count += 1
                                 has_new_dynamic = True
                                 await self._handle_new_dynamic(origin, result.payload, result.dyn_id, sub)
                             if result.dyn_id:
@@ -221,14 +237,23 @@ class DynamicListener:
                 logger.warning(f"解析动态失败 UID={uid}: {e}")
 
         # ---- 直播处理 ----
-        allowed_types = getattr(sub, "sub_types", ["视频"])
+        allowed_types = self._sub_types(sub)
         if "直播" not in allowed_types:
-            return
+            return dynamic_count, False
 
         if "live" in sub.filter_types:
-            return
+            return dynamic_count, False
         if live_room is not None and isinstance(live_room, dict):
-            await self._handle_live_status(origin, sub, live_room)
+            return dynamic_count, await self._handle_live_status(origin, sub, live_room)
+        return dynamic_count, False
+
+    @staticmethod
+    def _sub_types(sub: Subscription) -> list[str]:
+        sub_types = getattr(sub, "sub_types", ["视频"])
+        return [sub_types] if isinstance(sub_types, str) else list(sub_types or [])
+
+    def _needs_dynamic_data(self, sub: Subscription) -> bool:
+        return bool(DYNAMIC_SUB_TYPES.intersection(self._sub_types(sub)))
 
     # ================ 动态解析核心 ================
 
@@ -248,11 +273,11 @@ class DynamicListener:
         else:
             allowed_types = list(allowed_types)
             
-        # 🛑 修改：展开“动态”宏标签时，不再包含“视频”（视频由定时推送单独处理）
+        # “动态”宏涵盖全部非视频动态类型，视频仍由视频检查器单独处理。
         if "动态" in allowed_types:
-            allowed_types.extend(["图文", "转发", "专栏"])  # 移除 "视频"
+            allowed_types.extend(DYNAMIC_DETAIL_TYPES)
             
-        # 🛠️ 核心修复：将“视频”从动态监听白名单彻底剥离，交由定时视频推送器全权处理
+        # 视频动态交由视频检查器全权处理，避免与 last_bvid 去重混用。
         if "视频" in allowed_types:
             allowed_types.remove("视频")
             
@@ -560,7 +585,7 @@ class DynamicListener:
         else:
             allowed_types = list(allowed_types)
         if "动态" in allowed_types:
-            allowed_types.extend(["图文", "转发", "专栏"])  # 移除 "视频"
+            allowed_types.extend(DYNAMIC_DETAIL_TYPES)
             
         # 🛠️ 核心修复：二次校验同步移除“视频”，确保万无一失
         if "视频" in allowed_types:
@@ -658,9 +683,9 @@ class DynamicListener:
 
     # ================ 直播处理 ================
 
-    async def _handle_live_status(self, origin: str, sub: Subscription, live_room: Dict[str, Any]):
+    async def _handle_live_status(self, origin: str, sub: Subscription, live_room: Dict[str, Any]) -> bool:
         if not live_room or not isinstance(live_room, dict):
-            return
+            return False
 
         is_live_now = live_room.get("live_status", "") == 1
         if is_live_now and not sub.is_live:
@@ -668,11 +693,14 @@ class DynamicListener:
             await self._send_live_notice(origin, text, live_room, sub)
             sub.is_live = True
             await self.sub_manager.update_live_status(origin, sub.mid, True)
+            return True
         elif not is_live_now and sub.is_live:
             text = f"📣 你订阅的UP 「{sub.name}」 下播了！"
             await self._send_live_notice(origin, text, live_room, sub)
             sub.is_live = False
             await self.sub_manager.update_live_status(origin, sub.mid, False)
+            return True
+        return False
 
     async def _send_live_notice(self, origin: str, text: str, live_room: Dict, sub: Subscription):
         chain = [Plain(text)]

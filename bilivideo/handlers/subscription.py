@@ -391,60 +391,70 @@ async def handle_check_updates(services: BiliVideoServices, event: object) -> As
 
     yield event.plain_result(f"🔍 正在执行手动检查 ({len(subs)}个订阅)...")
 
-    found = 0
+    video_found = 0
+    dynamic_found = 0
+    live_changes = 0
+    dynamic_listener = getattr(services, "dynamic_listener", None)
     for sub in subs:
         try:
             sub_types = getattr(sub, "sub_types", ["视频"])
             if isinstance(sub_types, str):
                 sub_types = [sub_types]
-            if "视频" not in sub_types:
-                continue
+            if "视频" in sub_types:
+                videos = await get_latest_videos(services.http_client, sub.mid, count=1)
+                if videos:
+                    latest = videos[0]
+                    if not latest.bvid or not latest.bvid.startswith("BV"):
+                        services.logger.warning(f"手动检查跳过无效 BV 号 {latest.bvid!r}: {sub.name}")
+                    elif latest.bvid != sub.last_bvid:
+                        if not sub.last_bvid:
+                            services.logger.warning(
+                                f"手动检查发现空 BV 游标，按新视频处理: {sub.name} ({sub.mid})"
+                            )
 
-            videos = await get_latest_videos(services.http_client, sub.mid, count=1)
-            if not videos:
-                continue
-            latest = videos[0]
-            if not latest.bvid or not latest.bvid.startswith("BV"):
-                services.logger.warning(f"手动检查跳过无效 BV 号 {latest.bvid!r}: {sub.name}")
-                continue
-            if latest.bvid == sub.last_bvid:
-                continue
-            if not sub.last_bvid:
-                services.logger.warning(
-                    f"手动检查发现空 BV 游标，按新视频处理: {sub.name} ({sub.mid})"
-                )
+                        await services.subscription_manager.update_last_video(origin, sub.mid, latest.bvid)
+                        video_found += 1
+                        yield event.plain_result(
+                            f"🔔 订阅的 [{sub.name}] 发布了新视频!\n"
+                            f"📺 {latest.title}\n"
+                            f"🔗 https://www.bilibili.com/video/{latest.bvid}"
+                        )
 
-            await services.subscription_manager.update_last_video(origin, sub.mid, latest.bvid)
-            found += 1
-            yield event.plain_result(
-                f"🔔 订阅的 [{sub.name}] 发布了新视频!\n"
-                f"📺 {latest.title}\n"
-                f"🔗 https://www.bilibili.com/video/{latest.bvid}"
-            )
+                        if sub.auto_summary and not is_auto_summary_allowed(
+                            origin,
+                            config=services.config,
+                            sender_id=sub.auto_summary_user_id,
+                        ):
+                            sub.auto_summary = False
+                            sub.auto_summary_user_id = ""
+                            await services.subscription_manager.update_subscription(origin, sub)
+                            yield event.plain_result(f"⚠️ {sub.name} 的自动总结权限已失效，已改为仅推送提醒。")
+                        elif sub.auto_summary:
+                            try:
+                                note = await services.orchestrator.generate(f"https://www.bilibili.com/video/{latest.bvid}")
+                                components = await render_note_components(services, note.markdown)
+                                async for resp in yield_note_response(services, event, components, video_info=note.video_info):
+                                    yield resp
+                            except BiliVideoError as exc:
+                                yield event.plain_result(f"⚠️ 总结生成失败: {exc.user_message}")
 
-            if sub.auto_summary and not is_auto_summary_allowed(
-                origin,
-                config=services.config,
-                sender_id=sub.auto_summary_user_id,
-            ):
-                sub.auto_summary = False
-                sub.auto_summary_user_id = ""
-                await services.subscription_manager.update_subscription(origin, sub)
-                yield event.plain_result(f"⚠️ {sub.name} 的自动总结权限已失效，已改为仅推送提醒。")
-            elif sub.auto_summary:
-                try:
-                    note = await services.orchestrator.generate(f"https://www.bilibili.com/video/{latest.bvid}")
-                    components = await render_note_components(services, note.markdown)
-                    async for resp in yield_note_response(services, event, components, video_info=note.video_info):
-                        yield resp
-                except BiliVideoError as exc:
-                    yield event.plain_result(f"⚠️ 总结生成失败: {exc.user_message}")
+            if dynamic_listener is not None:
+                new_dynamics, live_changed = await dynamic_listener.check_subscription_once(origin, sub)
+                dynamic_found += new_dynamics
+                live_changes += int(live_changed)
+                if new_dynamics:
+                    yield event.plain_result(f"📨 [{sub.name}] 有 {new_dynamics} 条新动态已推送")
+                if live_changed:
+                    yield event.plain_result(f"🔴 [{sub.name}] 的直播状态变化已推送")
 
             await asyncio.sleep(1)
         except Exception as exc:
             services.logger.warning(f"手动检查失败 {sub.name}: {exc}")
 
-    yield event.plain_result(f"✅ 检查完成，共发现 {found} 个新视频。")
+    yield event.plain_result(
+        f"✅ 检查完成：视频 {video_found} 个，动态 {dynamic_found} 条，"
+        f"直播状态变化 {live_changes} 次。"
+    )
 
 
 async def handle_live_atall_toggle(services: BiliVideoServices, event: object) -> AsyncIterator[object]:
