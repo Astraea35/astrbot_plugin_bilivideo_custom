@@ -1,4 +1,4 @@
-"""Config validation tests."""
+﻿"""Config validation tests."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def test_int_clamps_within_range() -> None:
     cfg = PluginConfig.from_mapping({"max_note_length": 99})
     assert cfg.max_note_length == 500  # clamped to lo=500
     cfg = PluginConfig.from_mapping({"max_note_length": 99999})
-    assert cfg.max_note_length == 12000  # clamped to hi
+    assert cfg.max_note_length == 60000  # clamped to hi
 
 
 def test_csv_split() -> None:
@@ -101,3 +101,4 @@ def test_legacy_access_fields_are_migrated() -> None:
     assert cfg.access_list == ("100", "200")
     assert cfg.manual_summary_mode == "blacklist"
     assert cfg.manual_summary_list == ("300",)
+

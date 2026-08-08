@@ -1,4 +1,4 @@
-const bridge = window.AstrBotPluginPage;
+﻿const bridge = window.AstrBotPluginPage;
 const state = { context: null, data: null, localTheme: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -26,7 +26,7 @@ const fieldGroups = {
     { key: "note_style", label: "总结风格", type: "select", options: [["concise", "简洁要点"], ["detailed", "完整记录"], ["professional", "结构化分析"]] },
     { key: "enable_link", label: "插入时间戳", hint: "在总结中嵌入跳转标记", type: "switch" },
     { key: "enable_summary", label: "末尾 AI 总结段落", type: "switch" },
-    { key: "max_note_length", label: "最大总结长度", type: "number", min: "500", max: "12000" },
+    { key: "max_note_length", label: "最大总结长度", type: "number", min: "500", max: "60000" },
     { key: "prefer_subtitle", label: "优先使用平台字幕", type: "switch" },
     { key: "subtitle_langs", label: "字幕语言优先级", hint: "使用逗号分隔，例如 zh-Hans,zh,en", type: "text", list: true },
     { key: "download_quality", label: "下载质量", type: "select", options: [["fast", "快速"], ["medium", "均衡"], ["slow", "高质量"]] },
@@ -287,3 +287,4 @@ try {
   await loadState();
   bridge.onContext?.((context) => { state.context = context; if (state.localTheme === null) { state.localTheme = context.isDark ? "dark" : "light"; document.documentElement.dataset.theme = state.localTheme; } });
 } catch (error) { showToast(error.message || "页面初始化失败", true); }
+

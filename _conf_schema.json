@@ -1,4 +1,4 @@
-{
+﻿{
   "general": {
     "description": "🔧 通用设置",
     "type": "object",
@@ -37,7 +37,7 @@
       "note_style": { "type": "string", "default": "professional", "options": ["concise", "detailed", "professional"], "description": "风格", "hint": "concise=简洁要点 / detailed=完整记录 / professional=结构化分析" },
       "enable_link": { "type": "bool", "default": true, "description": "插入时间戳", "hint": "在总结中嵌入 [mm:ss] 跳转标记" },
       "enable_summary": { "type": "bool", "default": true, "description": "末尾 AI 总结段落", "hint": "在 Markdown 最后添加专业 AI 总结段落" },
-      "max_note_length": { "type": "int", "default": 3000, "min": 500, "max": 12000, "description": "最大字数", "hint": "超出后智能截断到段落边界并附友好提示" },
+      "max_note_length": { "type": "int", "default": 3000, "min": 500, "max": 60000, "description": "最大字数", "hint": "超出后智能截断到段落边界并附友好提示" },
       "prefer_subtitle": { "type": "bool", "default": true, "description": "优先使用平台字幕", "hint": "有字幕时跳过音频下载，可节省 30~60 秒/视频" },
       "subtitle_langs": { "type": "string", "default": "zh-Hans,zh,zh-CN,ai-zh,en,en-US", "description": "字幕语言优先顺序", "hint": "逗号分隔，按优先级排列" },
       "download_quality": { "type": "string", "default": "fast", "options": ["fast", "medium", "slow"], "description": "音频质量", "hint": "fast=32k / medium=64k / slow=128k" }
@@ -160,3 +160,4 @@
     }
   }
 }
+

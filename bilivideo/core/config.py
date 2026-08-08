@@ -1,4 +1,4 @@
-"""Strongly-typed configuration view over the raw dict supplied by AstrBot.
+﻿"""Strongly-typed configuration view over the raw dict supplied by AstrBot.
 
 The plugin previously read every option via `self.config.get("foo", default)`
 strewn across ~2,000 lines. This module consolidates all configuration
@@ -224,7 +224,7 @@ class PluginConfig:
             note_style=_coerce_str(flat.get("note_style"), "professional", options=NOTE_STYLES),
             enable_link=_coerce_bool(flat.get("enable_link"), True),
             enable_summary=_coerce_bool(flat.get("enable_summary"), True),
-            max_note_length=_coerce_int(flat.get("max_note_length"), 3000, lo=500, hi=12000),
+            max_note_length=_coerce_int(flat.get("max_note_length"), 3000, lo=500, hi=60000),
             prefer_subtitle=_coerce_bool(flat.get("prefer_subtitle"), True),
             download_quality=_coerce_str(
                 flat.get("download_quality"), "fast", options=tuple(QUALITY_TO_KBPS.keys())
@@ -310,3 +310,4 @@ class PluginConfig:
 
     def has_llm_credentials(self) -> bool:
         return bool(self.llm_api_base and self.llm_api_key)
+
