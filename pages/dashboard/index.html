@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BiliVideo 控制台</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="page-background" class="page-background"></div>
+    <div class="page-overlay"></div>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark">BV</div>
+          <div>
+            <div class="eyebrow">ASTRBOT PLUGIN</div>
+            <h1>BiliVideo 控制台</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="runtime-badge" class="status-pill neutral">连接中</span>
+          <button id="theme-toggle" class="icon-button" type="button" title="切换主题">☾</button>
+          <button id="refresh-button" class="secondary-button" type="button">刷新状态</button>
+          <button id="save-button" class="primary-button" type="button">保存全部设置</button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <aside class="sidebar">
+          <div class="sidebar-caption">控制台</div>
+          <button class="nav-item active" data-target="overview" type="button"><span>⌂</span> 总览</button>
+          <button class="nav-item" data-target="platforms" type="button"><span>◉</span> 平台接入</button>
+          <button class="nav-item" data-target="ai" type="button"><span>✦</span> AI 模型</button>
+          <button class="nav-item" data-target="summary" type="button"><span>▤</span> 总结与渲染</button>
+          <button class="nav-item" data-target="delivery" type="button"><span>◌</span> 推送与权限</button>
+          <button class="nav-item" data-target="appearance" type="button"><span>✧</span> 页面外观</button>
+          <div class="sidebar-note">
+            <span class="note-dot"></span>
+            <div><strong>设置自动持久化</strong><br /><small>模型切换类设置建议重载插件</small></div>
+          </div>
+        </aside>
+
+        <main class="content">
+          <section class="view active" data-view="overview">
+            <div class="hero-card">
+              <div>
+                <div class="eyebrow">VIDEO INTELLIGENCE WORKSPACE</div>
+                <h2>把视频处理流程，收进一个页面。</h2>
+                <p>从平台认证、AI 模型到动态订阅和输出卡片，都可以在这里集中管理。</p>
+              </div>
+              <div class="hero-orbit"><span>AI</span><i></i><b></b></div>
+            </div>
+            <div id="overview-metrics" class="metric-grid"></div>
+            <div class="section-heading"><div><span class="section-kicker">PLATFORMS</span><h3>平台状态</h3></div><button class="text-button" data-jump="platforms" type="button">管理平台 →</button></div>
+            <div id="overview-platforms" class="platform-grid compact"></div>
+            <div class="section-heading"><div><span class="section-kicker">QUICK START</span><h3>快速开始</h3></div></div>
+            <div class="quick-grid">
+              <button class="quick-card" data-jump="platforms" type="button"><span class="quick-icon blue">01</span><strong>连接平台</strong><small>配置 B 站 / YouTube / 抖音</small></button>
+              <button class="quick-card" data-jump="ai" type="button"><span class="quick-icon purple">02</span><strong>选择模型</strong><small>设置总结模型与备用模型</small></button>
+              <button class="quick-card" data-jump="appearance" type="button"><span class="quick-icon orange">03</span><strong>换一张背景</strong><small>上传常见或专业图像格式</small></button>
+            </div>
+          </section>
+
+          <section class="view" data-view="platforms">
+            <div class="page-heading"><div><span class="section-kicker">PLATFORM HUB</span><h2>平台接入</h2><p>每个平台单独管理认证状态与平台能力。</p></div><span id="platform-summary" class="soft-badge">多平台未启用</span></div>
+            <div id="platform-grid" class="platform-grid"></div>
+          </section>
+
+          <section class="view" data-view="ai">
+            <div class="page-heading"><div><span class="section-kicker">MODEL ROUTING</span><h2>AI 模型</h2><p>视频总结、动态摘要和故障备用策略使用这里的配置。</p></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>主模型</h3><p>留空的密钥不会覆盖已有密钥。</p></div><span class="card-icon purple">✦</span></div><div id="ai-main-fields" class="form-grid"></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>动态摘要</h3><p>订阅推送中的图文动态可以单独指定模型。</p></div><span class="card-icon blue">◌</span></div><div id="ai-dynamic-fields" class="form-grid"></div></div>
+          </section>
+
+          <section class="view" data-view="summary">
+            <div class="page-heading"><div><span class="section-kicker">OUTPUT PIPELINE</span><h2>总结与渲染</h2><p>控制字幕优先级、总结长度、卡片模板和图片输出。</p></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>视频总结</h3><p>适用于手动总结和自动识别。</p></div><span class="card-icon green">▤</span></div><div id="summary-fields" class="form-grid"></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>图片渲染</h3><p>输出图片设置会在下一次渲染任务中使用。</p></div><span class="card-icon orange">▧</span></div><div id="render-fields" class="form-grid"></div></div>
+          </section>
+
+          <section class="view" data-view="delivery">
+            <div class="page-heading"><div><span class="section-kicker">AUTOMATION & ACCESS</span><h2>推送与权限</h2><p>把自动识别、动态订阅、搜索和访问范围放在同一个工作区。</p></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>通用运行</h3><p>轮询频率和处理保护。</p></div><span class="card-icon blue">◷</span></div><div id="general-fields" class="form-grid"></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>自动识别</h3><p>控制裸链接识别时展示哪些信息。</p></div><span class="card-icon green">⌁</span></div><div id="detect-fields" class="form-grid"></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>订阅推送</h3><p>UP 主动态轮询和推送格式。</p></div><span class="card-icon orange">◉</span></div><div id="subscription-fields" class="form-grid"></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>消息推送格式</h3><p>合并转发消息中显示的机器人信息。</p></div><span class="card-icon purple">▣</span></div><div id="message-fields" class="form-grid"></div></div>
+            <div class="form-card"><div class="card-title"><div><h3>访问与搜索</h3><p>名单为空时按访问模式处理。</p></div><span class="card-icon purple">⌕</span></div><div id="access-search-fields" class="form-grid"></div></div>
+          </section>
+
+          <section class="view" data-view="appearance">
+            <div class="page-heading"><div><span class="section-kicker">PAGE PERSONALIZATION</span><h2>页面外观</h2><p>自定义插件页面背景，上传后立即预览。</p></div></div>
+            <div class="appearance-card">
+              <div class="appearance-preview"><div id="preview-label">默认背景</div><span>实时预览</span></div>
+              <div class="appearance-controls">
+                <div class="card-title"><div><h3>自定义背景图</h3><p>支持 PNG、JPG、GIF、WebP、AVIF、SVG、BMP、TIFF、ICO、JPEG2000 等；不稳定的格式会自动转为 PNG。</p></div><span class="card-icon orange">✧</span></div>
+                <div class="upload-row"><label class="upload-box" for="background-file"><span class="upload-symbol">＋</span><strong>选择图片</strong><small>最大 20 MB · 可拖拽上传</small><input id="background-file" type="file" accept="image/*,.svg,.avif,.heic,.heif,.tif,.tiff,.jp2,.j2k,.ico" /></label><div id="background-info" class="upload-info">尚未设置自定义背景</div></div>
+                <div class="appearance-actions"><button id="reset-background" class="secondary-button" type="button">恢复默认背景</button><span class="hint">SVG 会移除脚本和外部资源引用</span></div>
+              </div>
+            </div>
+            <div class="form-card"><div class="card-title"><div><h3>页面行为</h3><p>这些选项只影响当前插件页面的展示方式。</p></div><span class="card-icon blue">☼</span></div><div class="appearance-options"><label class="toggle-line"><input id="remember-scroll" type="checkbox" checked /><span class="toggle-ui"></span><span><strong>记住当前页面</strong><small>在本次打开期间保留导航位置</small></span></label><label class="toggle-line"><input id="compact-mode" type="checkbox" /><span class="toggle-ui"></span><span><strong>紧凑模式</strong><small>减少卡片间距，适合小屏幕</small></span></label></div></div>
+          </section>
+
+          <div id="toast" class="toast" role="status"></div>
+        </main>
+      </div>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

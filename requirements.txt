@@ -1,0 +1,9 @@
+aiohttp>=3.9
+yt-dlp>=2024.1.0
+imageio-ffmpeg>=0.4
+markdown>=3.4
+playwright>=1.40.0
+segno>=1.5
+requests>=2.31
+Pillow>=10.0
+jinja2>=3.0

@@ -1,0 +1,166 @@
+{
+  "general": {
+    "description": "🔧 通用设置",
+    "type": "object",
+    "items": {
+      "debug_mode": { "type": "bool", "default": false, "description": "调试模式", "hint": "开启后输出 DEBUG 级别日志，正常使用请关闭" },
+      "processing_timeout": { "type": "int", "default": 300, "min": 60, "max": 1800, "description": "单次总结超时(秒)", "hint": "下载 + 转写 + LLM 任意阶段超过此时长视为失败" },
+      "user_cooldown_seconds": { "type": "int", "default": 8, "min": 0, "max": 600, "description": "用户冷却(秒)", "hint": "每个用户两次手动总结之间的最小间隔，设 0 关闭" },
+      "task_gap_secs": { "type": "int", "default": 20, "min": 1, "max": 120, "description": "相邻UP主任务最小间隔(秒)", "hint": "避免同时请求B站API触发风控" },
+      "reconnect_silent": { "type": "bool", "default": false, "description": "重连静默模式", "hint": "启动时若长时间未成功推送，先静默一段时间消化积压动态" },
+      "reconnect_silent_threshold_secs": { "type": "int", "default": 21600, "min": 60, "max": 86400, "description": "触发静默的闲置阈值(秒)", "hint": "距上次成功推送超过此秒数则触发静默，默认6小时" },
+      "recent_dynamic_cache": { "type": "int", "default": 4, "min": 1, "max": 20, "description": "动态缓存大小", "hint": "每个订阅保留最近N条动态ID，用于去重" },
+      "dynamic_limit": { "type": "int", "default": 5, "min": 1, "max": 20, "description": "单次推送动态数量上限", "hint": "每个UP主单次检测最多推送N条新动态" }
+    }
+  },
+  "llm": {
+    "description": "🤖 LLM 模型",
+    "type": "object",
+    "items": {
+      "llm_provider": { "type": "string", "default": "astrbot", "options": ["astrbot", "astrbot_custom", "openai_compatible"], "description": "提供者", "hint": "astrbot=AstrBot 当前默认模型 / astrbot_custom=自选 AstrBot 内已有的第三方平台 / openai_compatible=自定义 OpenAI 兼容 API" },
+      "astrbot_provider_id": { "type": "string", "default": "", "description": "选择 AstrBot 平台", "hint": "当提供者选择 astrbot_custom 时，在此手动填写或选择你在系统内置添加的平台 ID（如 deepseek, openai 等）", "_special": "select_provider" },
+      "llm_provider_id": { "type": "string", "default": "", "description": "指定内置模型 ID", "hint": "仅 astrbot 模式生效。留空=用 AstrBot 当前模型；填 provider ID 可指定。" },
+      "llm_api_base": { "type": "string", "default": "", "description": "API Base URL", "hint": "例如 https://api.openai.com/v1 (仅在 openai_compatible 模式下生效)" },
+      "llm_api_key": { "type": "string", "default": "", "description": "API Key", "hint": "OpenAI 兼容 API 的 Bearer Token" },
+      "llm_model": { "type": "string", "default": "gpt-4o-mini", "description": "模型名称", "hint": "如 gpt-4o-mini / deepseek-chat" },
+      "llm_temperature": { "type": "float", "default": 0.4, "description": "Temperature", "hint": "总结任务推荐 0.2 ~ 0.6" },
+      "enable_fallback": { "type": "bool", "default": false, "description": "启用故障备用重试", "hint": "开启后，当主力大模型调用报错、额度耗尽或发生超时，程序会自动调用下方的备用大模型进行二次总结重试" },
+      "backup_provider_id": { "type": "string", "default": "", "description": "选择备用 AstrBot 平台", "hint": "从下拉菜单中直接选择一个你在系统内置添加的备用大模型平台 ID（如 deepseek, qianwen 等）作为唯一的容灾兜底通道", "_special": "select_provider" },
+      "bangumi_token": { "type": "string", "default": "", "description": "Bangumi Access Token", "hint": "可选。调用 Bangumi API 时需要授权时填写。" }
+    }
+  },
+  "summary": {
+    "description": "📝 总结生成",
+    "type": "object",
+    "items": {
+      "note_style": { "type": "string", "default": "professional", "options": ["concise", "detailed", "professional"], "description": "风格", "hint": "concise=简洁要点 / detailed=完整记录 / professional=结构化分析" },
+      "enable_link": { "type": "bool", "default": true, "description": "插入时间戳", "hint": "在总结中嵌入 [mm:ss] 跳转标记" },
+      "enable_summary": { "type": "bool", "default": true, "description": "末尾 AI 总结段落", "hint": "在 Markdown 最后添加专业 AI 总结段落" },
+      "max_note_length": { "type": "int", "default": 3000, "min": 500, "max": 60000, "description": "最大字数", "hint": "超出后智能截断到段落边界并附友好提示" },
+      "prefer_subtitle": { "type": "bool", "default": true, "description": "优先使用平台字幕", "hint": "有字幕时跳过音频下载，可节省 30~60 秒/视频" },
+      "enable_bilibili_ai_subtitle": { "type": "bool", "default": true, "description": "获取 B 站 AI 字幕", "hint": "常规字幕不可用时，使用已登录 B 站账号可访问的 AI 字幕；获取失败后才下载音频转写" },
+      "summary_featured_comment_count": { "type": "int", "default": 2, "min": 0, "max": 5, "description": "总结长图前排评论数", "hint": "默认随机展示 2 条热门评论；设为 0 可关闭。" },
+      "summary_comment_reply_count": { "type": "int", "default": 1, "min": 0, "max": 3, "description": "每条评论显示回复数", "hint": "默认显示 1 条回复；设为 0 不显示回复。" },
+      "subtitle_langs": { "type": "string", "default": "zh-Hans,zh,zh-CN,ai-zh,en,en-US", "description": "字幕语言优先顺序", "hint": "逗号分隔，按优先级排列" },
+      "download_quality": { "type": "string", "default": "fast", "options": ["fast", "medium", "slow"], "description": "音频质量", "hint": "fast=32k / medium=64k / slow=128k" },
+      "coolapk_summary_provider": { "type": "string", "default": "", "description": "酷安识别插件 / Provider", "hint": "可选择支持视觉输入的 AstrBot Provider；留空则使用默认总结模型。酷安原图会随正文一并发送给模型。", "_special": "select_provider" },
+      "coolapk_summary_model": { "type": "string", "default": "", "description": "酷安识别模型名称", "hint": "可选。留空使用所选 Provider 的默认模型；仅部分 Provider 支持指定模型名称。" }
+    }
+  },
+  "render": {
+    "description": "🎨 渲染输出",
+    "type": "object",
+    "items": {
+      "output_image": { "type": "bool", "default": true, "description": "图片输出", "hint": "开启后将使用 Playwright 无头浏览器渲染超清长图，完美支持 LaTeX 与代码高亮排版；关闭则回退纯文本" },
+      "theme": { "type": "string", "default": "light", "options": ["light", "dark"], "description": "长图主题配色", "hint": "选择生成长图的背景主题：light (白底绿字护眼模式) 或 dark (深色模式)" },
+      "renderer_template": {
+        "type": "string",
+        "default": "template_2",
+        "options": [
+          "template_1 (经典风格)",
+          "template_2 (B站粉风格)",
+          "simple (简约风格)"
+        ],
+        "description": "动态卡片模板",
+        "hint": "选择动态订阅推送时使用的卡片样式"
+      },
+      "custom_font_path": {
+        "type": "string",
+        "default": "",
+        "description": "自定义字体位置",
+        "hint": "填入本地字体文件路径（例如 /usr/share/fonts/SimHei.ttf 或 C:\\Windows\\Fonts\\msyh.ttc）。填写后优先使用该字体，留空则默认使用系统自带字体。"
+      },
+      "image_scale_factor": { "type": "int", "default": 2, "options": [1, 2, 3, 4], "description": "长图清晰度倍率", "hint": "选择图片的缩放倍率。1为常规，2为高清(推荐)，4为极致超清" },
+      "image_width": { "type": "int", "default": 1320, "min": 800, "max": 2400, "description": "图片画布宽度(像素)", "hint": "自定义总结长图的基础宽度值。iPhone 17 Pro Max 完美适配推荐填写 1320" },
+      "image_output_format": { "type": "string", "default": "png", "options": ["png", "jpg", "webp"], "description": "长图输出格式", "hint": "选择生成长图的文件格式。png清晰度最高，jpg体积小，webp兼顾体积与画质" },
+      "image_quality": { "type": "int", "default": 100, "minimum": 1, "maximum": 100, "description": "图片画质质量", "hint": "数值越高画质越好，文件越大。PNG 格式会忽略此设置。推荐 95-100" },
+      "enable_auto_split": { "type": "bool", "default": true, "description": "长视频自动分图", "hint": "总结过长时自动按章节拆成多张图片推送" },
+      "max_cards_per_image": { "type": "int", "default": 6, "min": 2, "max": 12, "description": "每图最大卡片数", "hint": "单张切图里建议包含 5~8 个卡片，平衡可读性与图片大小" },
+      "image_font_size": { "type": "int", "default": 32, "min": 16, "max": 64, "description": "长图文本基础字号(px)", "hint": "适合大屏与高分辨率画布适配。iPhone 17 Pro Max 视网膜清晰比例默认推荐 32" }
+    }
+  },
+  "message": {
+    "description": "💬 消息推送格式",
+    "type": "object",
+    "items": {
+      "enable_forward_message": { "type": "bool", "default": false, "description": "合并转发模式", "hint": "将视频信息+总结打包为聊天记录形式" },
+      "forward_bot_name": { "type": "string", "default": "BiliVideo 助手", "description": "合并转发显示名" },
+      "forward_bot_uin": { "type": "string", "default": "0", "description": "合并转发显示 QQ" }
+    }
+  },
+  "detect": {
+    "description": "🔍 自动识别",
+    "type": "object",
+    "items": {
+      "enable_miniapp_detect": { "type": "bool", "default": false, "description": "启用自动识别", "hint": "可用 /识别开关 命令实时切换。识别群内分享 of B 站小程序/链接/短链" },
+      "detect_show_cover": { "type": "bool", "default": true, "description": "推送封面" },
+      "detect_show_uploader": { "type": "bool", "default": true, "description": "推送 UP 主" },
+      "detect_show_desc": { "type": "bool", "default": true, "description": "推送简介" },
+      "detect_show_pubtime": { "type": "bool", "default": true, "description": "推送发布时间" },
+      "detect_show_link": { "type": "bool", "default": true, "description": "推送链接" },
+      "detect_show_stats": { "type": "bool", "default": true, "description": "推送播放数据" },
+      "detect_auto_summary": { "type": "bool", "default": false, "description": "自动总结", "hint": "开启会消耗 LLM 额度" },
+      "trigger_keywords": { "type": "string", "default": "总结,看看,看一下,看下,分析,讲的啥,讲什么,说的啥,说什么,内容,视频,这个,这视频,帮我看,帮忙看,解析,翻译,summary,summarize,analyze,video,watch,check,see", "description": "引用消息触发关键词", "hint": "逗号分隔。引用消息只有命中关键词才会触发自动识别" }
+    }
+  },
+  "subscription": {
+    "description": "📡 订阅推送",
+    "type": "object",
+    "items": {
+      "enable_auto_push": { "type": "bool", "default": false, "description": "启用自动检查与推送", "hint": "开启后统一检查订阅 UP 主的视频、动态和直播状态" },
+      "auto_push_summary": { "type": "bool", "default": true, "description": "视频推送时附带 AI 总结", "hint": "关闭后仅推送视频基本信息(节省 LLM 额度)" },
+      "check_interval_minutes": { "type": "int", "default": 10, "min": 5, "max": 1440, "description": "订阅检查间隔(分钟)", "hint": "视频、动态和直播均使用此间隔；默认 10 分钟" },
+      "max_subscriptions": { "type": "int", "default": 20, "min": 1, "max": 100, "description": "每会话最大订阅数" },
+      "sub_list_render_method": {
+        "type": "string",
+        "default": "direct",
+        "options": ["direct", "browser"],
+        "description": "订阅列表渲染方式",
+        "hint": "direct=本地 Pillow 渲染（零延迟，绝不超出方框） / browser=无头浏览器表格截图（精美网页表格大盘）"
+      },
+      "enable_dynamic_ai_summary": { "type": "bool", "default": false, "description": "动态 AI 总结", "hint": "对订阅推送的动态内容额外生成 AI 摘要（消耗 LLM 额度）" },
+      "dynamic_summary_provider": { "type": "string", "default": "", "description": "动态摘要专用模型 Provider ID", "hint": "从下拉列表中选择 AstrBot 已配置的 Provider，留空则复用视频总结的 LLM 配置", "_special": "select_provider" },
+      "dynamic_summary_model": { "type": "string", "default": "", "description": "动态摘要专用模型名称", "hint": "部分 Provider 支持指定具体模型名，留空则使用 Provider 的默认模型" },
+      "enable_multimodal_dynamic_summary": { "type": "bool", "default": false, "description": "多模态动态摘要", "hint": "开启后将动态图片交给支持视觉输入的模型；不支持视觉的模型会自动降级为文字摘要" },
+      "plain_push_template": { "type": "text", "default": "", "description": "纯文本推送消息模板", "hint": "非图片推送模式下的动态消息模板，留空使用默认格式。可用变量: {name}(UP主名称) {uid}(UID) {action}(动态动作，如\"投稿了新视频\") {title}(标题) {text}(正文) {url}(链接)。格式化后的空行会被自动移除。" },
+      "plain_push_forward_template": { "type": "text", "default": "", "description": "纯文本推送转发内容模板", "hint": "非图片推送模式下的转发内容模板，留空使用默认格式。可用变量: {name} {uid} {title} {text} {url}，数据来源为被转发的原动态。" },
+      "ai_summary_prompt": { "type": "text", "default": "", "description": "AI 摘要提示词模板", "hint": "可选，用于动态 AI 摘要。可使用 {content} 代表组装后的动态内容。留空使用内置默认提示词。" }
+    }
+  },
+  "access": {
+    "description": "🔐 访问控制",
+    "type": "object",
+    "items": {
+      "access_mode": { "type": "string", "default": "all", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "总访问范围", "hint": "所有普通插件命令都需先通过此范围；白名单为空时全部拒绝，黑名单为空时全部允许。" },
+      "access_list": { "type": "string", "default": "", "description": "总访问名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。名单会精确匹配当前会话或消息发送者。" },
+      "manual_summary_mode": { "type": "string", "default": "all", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "手动总结范围", "hint": "控制 /总结 和视频点播总结；此范围不能突破总访问范围。" },
+      "manual_summary_list": { "type": "string", "default": "", "description": "手动总结名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。" },
+      "auto_summary_mode": { "type": "string", "default": "private_only", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "自动总结范围", "hint": "控制链接识别和订阅推送自动总结；不通过时订阅会自动改为仅推送提醒。" },
+      "auto_summary_list": { "type": "string", "default": "", "description": "自动总结名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。" }
+    }
+  },
+  "search": {
+    "description": "🔎 搜索下载",
+    "type": "object",
+    "items": {
+      "default_count": { "type": "int", "default": 20, "min": 1, "max": 50, "description": "默认返回数" },
+      "default_download_count": { "type": "int", "default": 3, "min": 1, "max": 20, "description": "建议每次下载数" },
+      "search_max_concurrent": { "type": "int", "default": 1, "min": 1, "max": 5, "description": "并发下载数" },
+      "search_show_progress": { "type": "bool", "default": true, "description": "显示下载进度" }
+    }
+  },
+  "experimental": {
+    "description": "🧪 实验功能(默认关闭)",
+    "type": "object",
+    "items": {
+      "enable_multi_platform": { "type": "bool", "default": false, "description": "多平台(YouTube/抖音)", "hint": "⚠️ 实验性，默认关闭。" }
+    }
+  },
+  "webui": {
+    "description": "🖼️ 插件页面外观",
+    "type": "object",
+    "items": {
+      "background_image": { "type": "string", "default": "", "description": "插件页面背景图", "hint": "通过插件详情页的自定义 UI 上传；留空使用默认背景。" }
+    }
+  }
+}

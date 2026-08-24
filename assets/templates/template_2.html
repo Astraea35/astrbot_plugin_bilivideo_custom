@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=630" />
+        <style>
+        /* 🌟 智能接收自定义字体，未填写则回退至系统字体 */
+        {% if font_uri %}
+        @font-face {
+            font-family: 'MyCustomFont';
+            src: url('{{ font_uri }}');
+        }
+        :root {
+            --font-family: 'MyCustomFont', system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+        {% else %}
+        :root {
+            --font-family: system-ui, -apple-system, "BlinkMacSystemFont", "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+        {% endif %}
+            --b-pink: #fb7299;
+            --b-pink-light: #ffe0e6; /* 浅粉色背景 */
+            --b-blue: #23ade5;
+            --text-main: #18191c;
+            --text-sub: #61666d;
+            --page-bg: linear-gradient(135deg, #ffdee9 0%, #c8e3ff 100%);
+        }
+
+        html {
+            height: auto;
+            min-height: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 15px 15px 15px 15px;
+            font-family: var(--font-family);
+            background: var(--page-bg);
+            min-height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+
+        /* --- 卡片容器 --- */
+        .card {
+            width: 100%;
+            max-width: none;
+            box-sizing: border-box;
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(251, 114, 153, 0.15),
+                0 4px 12px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+        }
+
+        /* 顶部粉色装饰条 */
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, var(--b-pink), #ffb1cc);
+            z-index: 10;
+        }
+
+        .card-top-section {
+            background: linear-gradient(180deg, #feedf6 0%, #ffdce8 100%);
+            position: relative;
+        }
+
+        .banner-box {
+            width: 100%;
+            position: relative;
+            line-height: 0;
+            background: transparent;
+        }
+
+        .banner-img {
+            width: 100%;
+            height: auto;
+            max-height: 180px;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* --- 1. 头部区域 --- */
+        .header {
+            background: transparent;
+            padding: 20px 24px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        .user-wrapper {
+            display: flex;
+            align-items: flex-start;
+            flex: 1;
+            padding-right: 10px;
+            padding-top: 2px;
+        }
+
+        .avatar-box {
+            position: relative;
+            width: 54px;
+            height: 54px;
+            margin-right: 14px;
+            flex-shrink: 0;
+        }
+
+        .avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #fff;
+            box-shadow: 0 4px 8px rgba(251, 114, 153, 0.2);
+        }
+
+        .pendant {
+            position: absolute;
+            top: -20%;
+            left: -20%;
+            width: 140%;
+            height: 140%;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .name-line {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            line-height: 1.2;
+        }
+
+        .user-name {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--b-pink);
+            margin-right: 8px;
+        }
+
+        .uid-tag {
+            font-size: 11px;
+            background: rgba(251, 114, 153, 0.1);
+            color: #fb7299;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+            border: 1px solid rgba(251, 114, 153, 0.3);
+            white-space: nowrap;
+            line-height: 1.4;
+        }
+
+        .badge-line {
+            display: flex;
+        }
+
+        .sub-badge {
+            display: inline-block;
+            font-size: 12px;
+            background-color: var(--b-pink-light);
+            color: var(--b-pink);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+        .title-line {
+            font-size: 14px;
+            background-color: #fff0f5;
+            color: #b85c76;
+            border-left: 4px solid var(--b-pink);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            width: fit-content;
+            margin-top: 2px;
+            line-height: 1.5;
+        }
+
+        .header-qr-box {
+            background: #fff;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            flex-shrink: 0;
+            margin-left: 5px;
+            margin-top: 2px;
+        }
+
+        .qr-img {
+            width: 75px;
+            height: 75px;
+            object-fit: contain;
+            display: block;
+            border-radius: 6px;
+        }
+
+        /* --- 2. 内容区域 --- */
+        .content {
+            background-color: #ffffff;
+            padding: 0 24px 16px;
+            flex-grow: 0;
+            height: auto;
+        }
+
+        .text-body {
+            font-size: 16px;
+            color: var(--text-main);
+            line-height: 1.65;
+            white-space: normal;
+            word-break: break-word;
+            margin: 4px 20px;
+            padding: 8px 0;
+        }
+
+        .text-body p {
+            margin: 0;
+            padding: 0;
+        }
+
+        .text-body img {
+            vertical-align: text-bottom;
+            max-height: 22px;
+            margin: 0 2px;
+        }
+
+        .text-body a {
+            color: var(--b-blue);
+            text-decoration: none;
+            font-weight: 600;
+            background: rgba(35, 173, 229, 0.08);
+            padding: 0 4px;
+            border-radius: 4px;
+        }
+
+        .gallery {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .img-box {
+            width: 100%;
+            display: block;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            line-height: 0;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .img-box img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+        }
+
+        .forward-container {
+            margin-top: 0px;
+            background-color: #f7f8fa;
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            border-left: 5px solid rgba(251, 114, 153, 0.4);
+        }
+
+        .fwd-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .fwd-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 1px solid #fff;
+        }
+
+        .fwd-name {
+            font-weight: 700;
+            color: #555;
+            font-size: 15px;
+        }
+        .fwd-content {
+            font-size: 15px;
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .fwd-content a {
+            color: var(--b-blue);
+            text-decoration: none;
+        }
+
+        /* --- 3. 页脚区域 --- */
+        .footer {
+            background: linear-gradient(180deg, #f3f6f8 0%, #ebedf0 100%);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            border-top: 1px solid #eaebec;
+            margin-top: auto;
+        }
+
+        .copyright-pill {
+            display: inline-block;
+            background: #e6f7ff;
+            color: #008ac5;
+            border: 1px solid rgba(0, 138, 197, 0.1);
+            font-family: var(--font-family);
+            font-weight: 800;
+            font-size: 13px;
+            padding: 8px 20px;
+            border-radius: 50px;
+            box-shadow: 0 2px 6px rgba(35, 173, 229, 0.15);
+            letter-spacing: 0.5px;
+        }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="card-top-section">
+                {% if banner %}
+                <div class="banner-box">
+                    <img src="{{ banner }}" class="banner-img" />
+                </div>
+                {% endif %}
+                <div class="header">
+                    <div class="user-wrapper">
+                        <div class="avatar-box">
+                            {% if avatar %}
+                            <img src="{{ avatar }}" class="avatar" />
+                            {% else %}
+                            <img
+                                src="https://i0.hdslb.com/bfs/face/member/noface.jpg"
+                                class="avatar"
+                            />
+                            {% endif %} {% if pendant %}
+                            <img src="{{ pendant }}" class="pendant" />
+                            {% endif %}
+                        </div>
+
+                        <div class="user-info">
+                            <div class="name-line">
+                                <span class="user-name"
+                                    >{{ name | default('AstrBot') }}</span
+                                >
+                                {% if uid %}
+                                <span class="uid-tag"
+                                    >UID {{ uid | default('Unknown') }}</span
+                                >
+                                {% endif %}
+                            </div>
+
+                            <div class="badge-line">
+                                <span class="sub-badge">订阅更新</span>
+                            </div>
+
+                            {% if title %}
+                            <div class="title-line">{{ title }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if qrcode %}
+                    <div class="header-qr-box">
+                        <img src="{{ qrcode }}" class="qr-img" />
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="text-body">
+                    {{ text | default('') | safe | trim }}
+                </div>
+
+                {% if image_urls and not forward %}
+                <div class="gallery">
+                    {% for img_url in image_urls %}
+                    <div class="img-box">
+                        <img src="{{ img_url }}" />
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %} {% if forward %}
+                <div class="forward-container">
+                    <div class="fwd-header">
+                        {% if forward.avatar %}
+                        <img src="{{ forward.avatar }}" class="fwd-avatar" />
+                        {% endif %}
+                        <span class="fwd-name"
+                            >@{{ forward.name | default('用户') }}</span
+                        >
+                    </div>
+
+                    {% if forward.title %}
+                    <div
+                        style="
+                            font-weight: bold;
+                            margin-bottom: 4px;
+                            font-size: 16px;
+                            color: #222;
+                        "
+                    >
+                        {{ forward.title }}
+                    </div>
+                    {% endif %} {% if forward.text %}
+                    <div class="fwd-content">{{ forward.text | safe }}</div>
+                    {% endif %} {% if forward.image_urls %}
+                    <div class="gallery">
+                        {% for img_url in forward.image_urls %}
+                        <div class="img-box">
+                            <img src="{{ img_url }}" />
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="footer">
+                <div class="copyright-pill">
+                    Created By AstrBot Plugin Bilibili
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

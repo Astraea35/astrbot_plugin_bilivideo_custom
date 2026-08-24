@@ -1,0 +1,61 @@
+[project]
+name = "astrbot_plugin_bilivideo_custom"
+description = "Masterpiece-grade Bilibili & Douyin video summarization plugin for AstrBot (Custom Mod)"
+version = "1.0.0"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+readme = "README.md"
+authors = [{ name = "Astraea35" }]
+dependencies = [
+  "aiohttp>=3.9",
+  "yt-dlp>=2024.1.0",
+  "imageio-ffmpeg>=0.4",
+  "markdown>=3.4",
+  "playwright>=1.40.0",
+  "segno>=1.5",
+  "requests>=2.31",
+  "Pillow>=10.0",
+  "jinja2>=3.0",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "SIM", "ARG", "PL", "RUF"]
+ignore = [
+  "PLR0913",
+  "PLR0912",
+  "PLR0915",
+  "PLR0911",
+  "PLR2004",
+  "B008",
+  "PLW0603",
+  "PLC0415",
+  "RUF001",
+  "RUF002",
+  "ARG001",
+  "ARG002",
+  "SIM102",
+  "SIM117",
+  "PLW2901",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR0915", "PLR2004", "ARG001", "RUF015"]
+"main.py" = ["RUF006"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+
+[tool.setuptools.packages.find]
+include = ["bilivideo*"]
+
+[tool.mypy]
+python_version = "3.10"
+strict_optional = true
+warn_unused_ignores = true
+ignore_missing_imports = true
