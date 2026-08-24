@@ -5,7 +5,7 @@
     "items": {
       "enabled_platforms": {
         "type": "list",
-        "options": ["B站", "YouTube", "抖音", "酷安"],
+        "options": ["B站", "YouTube", "抖音", "酷安", "知乎"],
         "default": ["B站", "酷安"],
         "description": "启用的平台",
         "hint": "按需勾选平台。关闭某个平台后，手动总结和自动识别都会跳过该平台。"
@@ -55,9 +55,24 @@
       "summary_featured_comment_count": { "type": "int", "default": 2, "min": 0, "max": 5, "description": "总结长图前排评论数", "hint": "默认随机展示 2 条热门评论；设为 0 可关闭。" },
       "summary_comment_reply_count": { "type": "int", "default": 1, "min": 0, "max": 3, "description": "每条评论显示回复数", "hint": "默认显示 1 条回复；设为 0 不显示回复。" },
       "subtitle_langs": { "type": "string", "default": "zh-Hans,zh,zh-CN,ai-zh,en,en-US", "description": "字幕语言优先顺序", "hint": "逗号分隔，按优先级排列" },
-      "download_quality": { "type": "string", "default": "fast", "options": ["fast", "medium", "slow"], "description": "音频质量", "hint": "fast=32k / medium=64k / slow=128k" },
-      "coolapk_summary_provider": { "type": "string", "default": "", "description": "酷安识别插件 / Provider", "hint": "可选择支持视觉输入的 AstrBot Provider；留空则使用默认总结模型。酷安原图会随正文一并发送给模型。", "_special": "select_provider" },
-      "coolapk_summary_model": { "type": "string", "default": "", "description": "酷安识别模型名称", "hint": "可选。留空使用所选 Provider 的默认模型；仅部分 Provider 支持指定模型名称。" }
+      "download_quality": { "type": "string", "default": "fast", "options": ["fast", "medium", "slow"], "description": "音频质量", "hint": "fast=32k / medium=64k / slow=128k" }
+    }
+  },
+  "coolapk": {
+    "description": "📱 酷安总结",
+    "type": "object",
+    "items": {
+      "coolapk_summary_provider": { "type": "string", "default": "", "description": "视觉识别 Provider", "hint": "留空使用默认总结模型；原图会一并交给模型。", "_special": "select_provider" },
+      "coolapk_summary_model": { "type": "string", "default": "", "description": "视觉识别模型", "hint": "可选模型名称。" }
+    }
+  },
+  "zhihu": {
+    "description": "📚 知乎总结",
+    "type": "object",
+    "items": {
+      "zhihu_cookie": { "type": "string", "default": "", "description": "知乎 Cookie", "hint": "用于读取知乎回答、问题和专栏正文；建议填写浏览器导出的完整 Cookie。", "secret": true },
+      "zhihu_summary_provider": { "type": "string", "default": "", "description": "知乎识别 Provider", "hint": "留空使用默认总结模型；知乎正文中的图片会一并参与总结。", "_special": "select_provider" },
+      "zhihu_summary_model": { "type": "string", "default": "", "description": "知乎识别模型", "hint": "可选模型名称，留空使用 Provider 默认模型。" }
     }
   },
   "render": {

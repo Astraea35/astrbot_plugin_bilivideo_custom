@@ -34,6 +34,7 @@ from ..core.exceptions import BiliVideoError
 from ..core.logging import get_logger
 from ..core.types import VideoInfo
 from ..coolapk import CoolapkPost, build_coolapk_prompt
+from ..zhihu import ZhihuPost
 from ..llm.prompts import build_prompt
 from ..llm.provider import LLMProvider
 from ..parsing.url_extractor import extract_bvid
@@ -63,10 +64,12 @@ class SummaryOrchestrator:
         http_client: BilibiliHTTPClient,
         data_dir: str | None = None,
         coolapk_llm: LLMProvider | None = None,
+        zhihu_llm: LLMProvider | None = None,
     ) -> None:
         self._config = config
         self._llm = llm
         self._coolapk_llm = coolapk_llm or llm
+        self._zhihu_llm = zhihu_llm or llm
         self._pipeline = pipeline
         self._http = http_client
         self._cache: LRUTTLCache[str, NoteResult] = LRUTTLCache(
@@ -221,6 +224,36 @@ class SummaryOrchestrator:
 
     def set_coolapk_llm(self, provider: LLMProvider) -> None:
         self._coolapk_llm = provider
+
+    def set_zhihu_llm(self, provider: LLMProvider) -> None:
+        self._zhihu_llm = provider
+
+    async def generate_zhihu(self, post: ZhihuPost) -> NoteResult:
+        prompt = (
+            "你是中文内容总结助手。请根据下面的知乎文本帖原文和图片，输出结构化、准确、易读的总结。"
+            "先给出一句话结论，再列出关键观点、事实/数据、争议或局限，最后给出适合普通读者的阅读建议。"
+            "不要编造原文没有的信息；图片中的文字、表格和图示也要纳入判断。\n\n"
+            f"标题：{post.title}\n作者：{post.author}\n原文：\n{post.content}"
+        )
+        try:
+            markdown = await asyncio.wait_for(
+                self._zhihu_llm.chat(
+                    prompt,
+                    session_id="BiliVideo_zhihu",
+                    image_urls=post.images,
+                    model=getattr(self._config, "zhihu_summary_model", ""),
+                ),
+                timeout=LLM_CHAT_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError as exc:
+            raise BiliVideoError("zhihu LLM timeout", user_message="❌ AI 总结超时，请稍后重试") from exc
+        if not markdown:
+            raise BiliVideoError("empty Zhihu LLM output", user_message="❌ AI 返回内容为空，请重试")
+        return NoteResult(
+            markdown=post.render_markdown + "\n\n## AI 总结\n\n" + smart_truncate(markdown, self._config.max_note_length),
+            video_info=None,
+            used_subtitle=True,
+        )
 
     async def _get_persistent_cache(self, bvid: str) -> NoteResult | None:
         if self._persistent_cache is None:

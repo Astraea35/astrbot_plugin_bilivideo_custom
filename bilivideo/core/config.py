@@ -132,6 +132,9 @@ class PluginConfig:
     # Coolapk text-post recognition. Empty provider means reuse the default summary LLM.
     coolapk_summary_provider: str = ""
     coolapk_summary_model: str = ""
+    zhihu_cookie: str = ""
+    zhihu_summary_provider: str = ""
+    zhihu_summary_model: str = ""
 
     # rendering ----------------------------------------------------------
     output_image: bool = True
@@ -220,7 +223,7 @@ class PluginConfig:
         return self.check_interval_minutes * 60
 
     def is_platform_enabled(self, platform: str) -> bool:
-        aliases = {"bilibili": "B站", "youtube": "YouTube", "douyin": "抖音", "coolapk": "酷安"}
+        aliases = {"bilibili": "B站", "youtube": "YouTube", "douyin": "抖音", "coolapk": "酷安", "zhihu": "知乎"}
         label = aliases.get(platform.casefold(), platform)
         if self.enable_multi_platform and self.enabled_platforms == ("B站", "酷安"):
             return label in {"B站", "YouTube", "抖音", "酷安"}
@@ -266,6 +269,9 @@ class PluginConfig:
             or ("zh-Hans", "zh", "zh-CN", "ai-zh", "en", "en-US"),
             coolapk_summary_provider=_coerce_str(flat.get("coolapk_summary_provider"), ""),
             coolapk_summary_model=_coerce_str(flat.get("coolapk_summary_model"), ""),
+            zhihu_cookie=_coerce_str(flat.get("zhihu_cookie"), ""),
+            zhihu_summary_provider=_coerce_str(flat.get("zhihu_summary_provider"), ""),
+            zhihu_summary_model=_coerce_str(flat.get("zhihu_summary_model"), ""),
             output_image=_coerce_bool(flat.get("output_image"), True),
             theme=_coerce_str(flat.get("theme"), "light", options=("light", "dark")),
             enable_auto_split=_coerce_bool(flat.get("enable_auto_split"), True),

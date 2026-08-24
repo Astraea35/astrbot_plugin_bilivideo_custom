@@ -39,21 +39,23 @@ MAX_BACKGROUND_BYTES = 20 * 1024 * 1024
 MAX_BACKGROUND_PIXELS = 12000 * 12000
 
 CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
+    "platforms": ("enabled_platforms",),
     "general": ("debug_mode", "processing_timeout", "user_cooldown_seconds", "task_gap_secs", "reconnect_silent", "reconnect_silent_threshold_secs", "recent_dynamic_cache", "dynamic_limit"),
     "llm": ("llm_provider", "astrbot_provider_id", "llm_provider_id", "llm_api_base", "llm_api_key", "llm_model", "llm_temperature", "enable_fallback", "backup_provider_id", "bangumi_token"),
-    "summary": ("note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle", "subtitle_langs", "download_quality", "coolapk_summary_provider", "coolapk_summary_model"),
+    "summary": ("note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle", "subtitle_langs", "download_quality"),
+    "coolapk": ("coolapk_summary_provider", "coolapk_summary_model"),
+    "zhihu": ("zhihu_cookie", "zhihu_summary_provider", "zhihu_summary_model"),
     "render": ("output_image", "theme", "renderer_template", "custom_font_path", "image_scale_factor", "image_width", "image_output_format", "image_quality", "enable_auto_split", "max_cards_per_image", "image_font_size"),
     "message": ("enable_forward_message", "forward_bot_name", "forward_bot_uin"),
     "detect": ("enable_miniapp_detect", "detect_show_cover", "detect_show_uploader", "detect_show_desc", "detect_show_pubtime", "detect_show_link", "detect_show_stats", "detect_auto_summary", "trigger_keywords"),
     "subscription": ("enable_auto_push", "auto_push_summary", "check_interval_minutes", "max_subscriptions", "sub_list_render_method", "enable_dynamic_ai_summary", "dynamic_summary_provider", "dynamic_summary_model", "enable_multimodal_dynamic_summary", "plain_push_template", "plain_push_forward_template", "ai_summary_prompt"),
     "access": ("access_mode", "access_list", "manual_summary_mode", "manual_summary_list", "auto_summary_mode", "auto_summary_list"),
     "search": ("default_count", "default_download_count", "search_max_concurrent", "search_show_progress"),
-    "platforms": ("enabled_platforms",),
     "webui": ("background_image",),
 }
 
 CONFIG_FIELDS = {field_name for group in CONFIG_GROUPS.values() for field_name in group}
-SECRET_FIELDS = {"llm_api_key", "bangumi_token"}
+SECRET_FIELDS = {"llm_api_key", "bangumi_token", "zhihu_cookie"}
 LIST_FIELDS = {"subtitle_langs", "trigger_keywords", "access_list", "manual_summary_list", "auto_summary_list", "enabled_platforms"}
 DEFAULT_EXTRA_VALUES: dict[str, Any] = {"astrbot_provider_id": "", "enable_fallback": False, "backup_provider_id": "", "background_image": ""}
 

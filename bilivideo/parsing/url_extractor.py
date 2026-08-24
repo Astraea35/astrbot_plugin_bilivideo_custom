@@ -45,6 +45,10 @@ def detect_platform(url: str) -> str | None:
         return "bilibili"
     if host in {"coolapk.com", "www.coolapk.com", "m.coolapk.com"} and re.search(r"/feed/\d+", urllib.parse.urlparse(_clean_url_token(url)).path):
         return "coolapk"
+    if host in {"zhihu.com", "www.zhihu.com", "zhuanlan.zhihu.com"} or host.endswith(".zhihu.com"):
+        path = urllib.parse.urlparse(_clean_url_token(url)).path
+        if re.search(r"/question/\d+", path) or re.search(r"/p/\d+", path):
+            return "zhihu"
     if host in {"youtu.be", "youtube.com"} or host.endswith(".youtube.com"):
         return "youtube"
     if (

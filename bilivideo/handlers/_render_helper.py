@@ -37,6 +37,7 @@ async def render_note_components(
     markdown_text: str,
     *,
     video_info: VideoInfo | None = None,
+    force_image: bool = False,
 ) -> list[Any] | str:
     """Render an AI summary, optionally enriching Bilibili image output."""
     try:
@@ -51,6 +52,7 @@ async def _render_note_components_inner(
     markdown_text: str,
     *,
     video_info: VideoInfo | None,
+    force_image: bool,
 ) -> list[Any] | str:
     if not services.config.output_image and not force_image:
         return markdown_text

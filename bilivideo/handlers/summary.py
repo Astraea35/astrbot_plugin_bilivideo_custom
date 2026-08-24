@@ -77,6 +77,26 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
         yield event.plain_result("❌ 短链解析失败，请检查链接是否有效或直接发送 BV 号")
         return
 
+    if detect_platform(video_url) == "zhihu":
+        yield event.plain_result("⏳ 正在获取知乎内容并生成总结，请稍候...")
+        services.cooldown.punch(cooldown_key)
+        try:
+            post = await services.zhihu_client.fetch(video_url)
+            note = await services.inflight.run(
+                "zhihu:" + post.content_type + ":" + post.content_id,
+                lambda: services.orchestrator.generate_zhihu(post),
+            )
+        except BiliVideoError as exc:
+            yield event.plain_result(exc.user_message)
+            return
+        except Exception as exc:
+            yield event.plain_result(f"❌ 知乎内容获取失败: {exc}")
+            return
+        components = await render_note_components(services, note.markdown, force_image=True)
+        async for resp in yield_note_response(services, event, components, video_info=None):
+            yield resp
+        return
+
     yield event.plain_result("⏳ 正在生成总结，请稍候(可能需要 1-3 分钟)...")
     services.cooldown.punch(cooldown_key)
 
@@ -157,11 +177,11 @@ def _is_platform_supported(
 ) -> bool:
     platform = detect_platform(video_url)
     if enabled_platforms is not None:
-        labels = {"bilibili": "B站", "youtube": "YouTube", "douyin": "抖音", "coolapk": "酷安"}
+        labels = {"bilibili": "B站", "youtube": "YouTube", "douyin": "抖音", "coolapk": "酷安", "zhihu": "知乎"}
         return bool(platform and labels.get(platform) in enabled_platforms)
     if platform == "bilibili":
         return True
-    return bool(enable_multi_platform and platform in ("youtube", "douyin")) or platform == "coolapk"
+    return bool(enable_multi_platform and platform in ("youtube", "douyin")) or platform in {"coolapk", "zhihu"}
 
 
 def _extract_video_url(raw_msg: str, event: object) -> str:

@@ -18,7 +18,7 @@ HELP_TEMPLATE = """\
   /YT登出 (ytlogout) → 清除 YouTube cookies
 
 📌 基本命令:
-  /总结 (bv) <{platform_scope}视频链接或BV号>
+  /总结 (bv) <{platform_scope}链接或BV号>
   /最新视频 (latest) <UP主UID、空间链接或昵称>
 
 📌 订阅管理:

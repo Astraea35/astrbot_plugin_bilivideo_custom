@@ -16,6 +16,7 @@ from ..access.control import is_allowed, is_auto_summary_allowed
 from ..api.endpoints import get_video_info
 from ..core.exceptions import BiliVideoError
 from ..coolapk import extract_coolapk_url, fetch_coolapk_post
+from ..zhihu import extract_zhihu_url
 from ..messaging.builders import format_video_summary_lines
 from ..parsing.message_router import (
     looks_like_quoted_message,
@@ -316,7 +317,9 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         part for part in (ctx.plain_text, ctx.raw_message, ctx.json_card_text) if part
     )
     if ctx.has_at and not (
-        TriggerSet.has_bilibili_hint(link_scan_text) or extract_coolapk_url(link_scan_text)
+        TriggerSet.has_bilibili_hint(link_scan_text)
+        or extract_coolapk_url(link_scan_text)
+        or extract_zhihu_url(link_scan_text)
     ):
         return
 
@@ -483,6 +486,38 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         # 如果未开启自动总结，发完卡片直接结束（保持原样）
         return
 
+    # ==================== 知乎回答 / 专栏 / 问题识别 ====================
+    zhihu_url = extract_zhihu_url(coolapk_scan_text)
+    if zhihu_url:
+        if not services.config.is_platform_enabled("zhihu"):
+            return
+        try:
+            post = await services.zhihu_client.fetch(zhihu_url)
+        except Exception as exc:
+            services.logger.warning(f"知乎内容获取失败: {exc}")
+            return
+        content_label = {"answer": "回答", "article": "专栏", "question": "问题"}.get(
+            post.content_type, "内容"
+        )
+        yield event.plain_result(f"📚 知乎{content_label}：{post.title or post.content[:40]}")
+        try:
+            if services.config.detect_auto_summary:
+                if not _check_auto_summary_access(services, event):
+                    return
+                note = await services.inflight.run(
+                    "zhihu:" + post.content_type + ":" + post.content_id,
+                    lambda: services.orchestrator.generate_zhihu(post),
+                )
+                markdown = note.markdown
+            else:
+                markdown = post.render_markdown
+            components = await render_note_components(services, markdown, force_image=True)
+            async for resp in yield_note_response(services, event, components, video_info=None):
+                yield resp
+        except Exception as exc:
+            yield event.plain_result(f"❌ 知乎内容处理失败: {exc}")
+        return
+
     # ==================== 📺 哔哩哔哩原厂完整逻辑（100% 恢复） ====================
     triggers = TriggerSet(services.config.trigger_keywords)
     is_triggered = triggers.matches(ctx.plain_text)
@@ -496,6 +531,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
     bvid = await _resolve_bvid(services, ctx, allow_full_text=not ctx.is_reply)
     if not bvid:
         return
+
     if not services.config.is_platform_enabled("bilibili"):
         return
 

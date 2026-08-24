@@ -20,6 +20,7 @@ from .auth.youtube_cookies import YouTubeCookieStore
 from .core.config import PluginConfig
 from .core.logging import get_logger
 from .coolapk import fetch_coolapk_post
+from .zhihu import ZhihuClient
 from .downloader.ytdlp_downloader import YtDlpDownloader
 from .llm.provider import DisabledLLMProvider, LLMProvider, build_provider
 from .llm.astrbot_provider import AstrbotProvider
@@ -96,6 +97,12 @@ class BiliVideoServices:
             if config.coolapk_summary_provider
             else self.llm
         )
+        self.zhihu_llm: LLMProvider = (
+            AstrbotProvider(astrbot_context, provider_id=config.zhihu_summary_provider)
+            if config.zhihu_summary_provider
+            else self.llm
+        )
+        self.zhihu_client = ZhihuClient(config.zhihu_cookie)
 
         # Summary + render
         self.orchestrator = SummaryOrchestrator(
@@ -105,6 +112,7 @@ class BiliVideoServices:
             http_client=self.http_client,
             data_dir=data_dir,
             coolapk_llm=self.coolapk_llm,
+            zhihu_llm=self.zhihu_llm,
         )
 
         # 使用 WkHtmlRenderer（Playwright 驱动）
@@ -143,6 +151,13 @@ class BiliVideoServices:
             else self.llm
         )
         self.orchestrator.set_coolapk_llm(self.coolapk_llm)
+        self.zhihu_llm = (
+            AstrbotProvider(self.astrbot_context, provider_id=config.zhihu_summary_provider)
+            if config.zhihu_summary_provider
+            else self.llm
+        )
+        self.zhihu_client = ZhihuClient(config.zhihu_cookie)
+        self.orchestrator.set_zhihu_llm(self.zhihu_llm)
 
         # Track in-flight long jobs (e.g. AI search download)
         self._download_task: asyncio.Task | None = None
