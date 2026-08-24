@@ -1,6 +1,6 @@
 name: astrbot_plugin_bilivideo_custom
 display_name: biliVideo 视频总结 (Mod魔改版)
 desc: 高品质 B站/抖音 视频解析与 AI 总结插件 - 独创 Playwright 线程隔离生图、Token 防爆盾、精细化总结范围控制 (魔改重制版)
-version: 2.4.0
+version: 2.4.1
 author: "Astraea35"
 repo: https://github.com/Astraea35/astrbot_plugin_bilivideo_custom

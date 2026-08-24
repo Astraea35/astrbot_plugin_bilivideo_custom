@@ -1,4 +1,17 @@
 {
+  "platforms": {
+    "description": "🌐 平台开关",
+    "type": "object",
+    "items": {
+      "enabled_platforms": {
+        "type": "list",
+        "options": ["B站", "YouTube", "抖音", "酷安"],
+        "default": ["B站", "酷安"],
+        "description": "启用的平台",
+        "hint": "按需勾选平台。关闭某个平台后，手动总结和自动识别都会跳过该平台。"
+      }
+    }
+  },
   "general": {
     "description": "🔧 通用设置",
     "type": "object",
@@ -147,19 +160,6 @@
       "default_download_count": { "type": "int", "default": 3, "min": 1, "max": 20, "description": "建议每次下载数" },
       "search_max_concurrent": { "type": "int", "default": 1, "min": 1, "max": 5, "description": "并发下载数" },
       "search_show_progress": { "type": "bool", "default": true, "description": "显示下载进度" }
-    }
-  },
-  "platforms": {
-    "description": "🌐 平台开关",
-    "type": "object",
-    "items": {
-      "enabled_platforms": {
-        "type": "list",
-        "options": ["B站", "YouTube", "抖音", "酷安"],
-        "default": ["B站", "酷安"],
-        "description": "启用的平台",
-        "hint": "按需勾选平台。关闭某个平台后，手动总结和自动识别都会跳过该平台。"
-      }
     }
   },
   "webui": {
