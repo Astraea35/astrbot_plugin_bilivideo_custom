@@ -36,3 +36,18 @@ def test_non_video_url_never_supported() -> None:
 def test_enable_multi_platform_config() -> None:
     assert PluginConfig.from_mapping({"enable_multi_platform": True}).enable_multi_platform is True
     assert PluginConfig.from_mapping({}).enable_multi_platform is False
+
+
+def test_platform_list_migrates_old_multi_platform_flag() -> None:
+    cfg = PluginConfig.from_mapping({"enable_multi_platform": True})
+    assert cfg.enabled_platforms == ("B站", "YouTube", "抖音", "酷安")
+
+
+def test_platform_list_controls_summary_gate() -> None:
+    from bilivideo.handlers.summary import _is_platform_supported
+
+    enabled = ("B站", "酷安")
+    assert _is_platform_supported("https://www.bilibili.com/video/BV1", enabled_platforms=enabled)
+    assert _is_platform_supported("https://www.coolapk.com/feed/123", enabled_platforms=enabled)
+    assert not _is_platform_supported("https://www.douyin.com/video/123", enabled_platforms=enabled)
+    assert not _is_platform_supported("https://www.youtube.com/watch?v=abc", enabled_platforms=enabled)

@@ -46,11 +46,13 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
         )
         return
 
-    if not _is_platform_supported(video_url, enable_multi_platform=services.config.enable_multi_platform):
-        if services.config.enable_multi_platform:
-            yield event.plain_result("❌ 仅支持 B站 / YouTube / 抖音 视频 / 酷安动态链接")
-        else:
-            yield event.plain_result("❌ 目前仅支持 B站视频或酷安动态链接")
+    if not _is_platform_supported(
+        video_url,
+        enable_multi_platform=services.config.enable_multi_platform,
+        enabled_platforms=services.config.enabled_platforms,
+    ):
+        enabled = " / ".join(services.config.enabled_platforms) or "无"
+        yield event.plain_result(f"❌ 当前启用的平台不支持此链接。已启用: {enabled}")
         return
 
     if detect_platform(video_url) == "coolapk":
@@ -147,8 +149,16 @@ async def handle_latest_video(services: BiliVideoServices, event: object) -> Asy
 # ──────────────────────────── helpers ──────────────────────────────
 
 
-def _is_platform_supported(video_url: str, *, enable_multi_platform: bool) -> bool:
+def _is_platform_supported(
+    video_url: str,
+    *,
+    enable_multi_platform: bool = False,
+    enabled_platforms: tuple[str, ...] | None = None,
+) -> bool:
     platform = detect_platform(video_url)
+    if enabled_platforms is not None:
+        labels = {"bilibili": "B站", "youtube": "YouTube", "douyin": "抖音", "coolapk": "酷安"}
+        return bool(platform and labels.get(platform) in enabled_platforms)
     if platform == "bilibili":
         return True
     return bool(enable_multi_platform and platform in ("youtube", "douyin")) or platform == "coolapk"

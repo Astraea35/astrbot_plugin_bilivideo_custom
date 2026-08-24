@@ -48,13 +48,13 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
     "subscription": ("enable_auto_push", "auto_push_summary", "check_interval_minutes", "max_subscriptions", "sub_list_render_method", "enable_dynamic_ai_summary", "dynamic_summary_provider", "dynamic_summary_model", "enable_multimodal_dynamic_summary", "plain_push_template", "plain_push_forward_template", "ai_summary_prompt"),
     "access": ("access_mode", "access_list", "manual_summary_mode", "manual_summary_list", "auto_summary_mode", "auto_summary_list"),
     "search": ("default_count", "default_download_count", "search_max_concurrent", "search_show_progress"),
-    "experimental": ("enable_multi_platform",),
+    "platforms": ("enabled_platforms",),
     "webui": ("background_image",),
 }
 
 CONFIG_FIELDS = {field_name for group in CONFIG_GROUPS.values() for field_name in group}
 SECRET_FIELDS = {"llm_api_key", "bangumi_token"}
-LIST_FIELDS = {"subtitle_langs", "trigger_keywords", "access_list", "manual_summary_list", "auto_summary_list"}
+LIST_FIELDS = {"subtitle_langs", "trigger_keywords", "access_list", "manual_summary_list", "auto_summary_list", "enabled_platforms"}
 DEFAULT_EXTRA_VALUES: dict[str, Any] = {"astrbot_provider_id": "", "enable_fallback": False, "backup_provider_id": "", "background_image": ""}
 
 IMAGE_MIME_BY_EXTENSION = {
@@ -266,7 +266,7 @@ class PluginWebUI:
                     "youtube_cookies": bool(getattr(getattr(self.services, "youtube_cookies", None), "has", lambda: False)()),
                     "scheduler_running": bool(getattr(scheduler, "is_running", lambda: False)()),
                     "subscription_count": await self._subscription_count(),
-                    "multi_platform": bool(config.get("enable_multi_platform", False)),
+                    "enabled_platforms": config.get("enabled_platforms", ["B站", "酷安"]),
                 },
                 "background": {
                     "active": background is not None,

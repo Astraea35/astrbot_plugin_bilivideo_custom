@@ -20,8 +20,8 @@ def _instructions(services: BiliVideoServices) -> str:
     logged_in = "✅ 已登录(已保存 cookies)" if services.youtube_cookies.has() else "❌ 未登录"
     multi = (
         "✅ 已开启"
-        if services.config.enable_multi_platform
-        else "❌ 未开启(配置→🧪 实验功能→「多平台」)"
+        if services.config.is_platform_enabled("youtube")
+        else "❌ 未开启(配置→🧪 实验功能→平台多选)"
     )
     return (
         "📺 YouTube 登录(实验)\n"
@@ -57,7 +57,7 @@ async def handle_youtube_login(services: BiliVideoServices, event: object) -> As
     if count:
         yield event.plain_result(  # type: ignore[attr-defined]
             f"✅ 已保存 YouTube cookies(共 {count} 条)。\n"
-            "开启🧪 多平台后即可 /总结 YouTube 链接。\n"
+            "在平台多选中启用 YouTube 后即可 /总结 YouTube 链接。\n"
             "⚠️ 提醒:请确认用的是小号,机房 IP 拉流有封号风险。"
         )
     else:

@@ -46,7 +46,7 @@ HELP_TEMPLATE = """\
 
 async def handle_help(services: BiliVideoServices, event: object) -> AsyncIterator[object]:
     login_status = "✅ 已登录" if services.is_logged_in() else "❌ 未登录"
-    platform_scope = "B站 / YouTube / 抖音 " if services.config.enable_multi_platform else "B站"
+    platform_scope = " / ".join(services.config.enabled_platforms) or "无可用平台"
     yield event.plain_result(  # type: ignore[attr-defined]
         HELP_TEMPLATE.format(login_status=login_status, platform_scope=platform_scope)
     )

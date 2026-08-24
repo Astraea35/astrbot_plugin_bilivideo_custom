@@ -127,6 +127,7 @@ class PluginConfig:
     summary_comment_reply_count: int = 1
     download_quality: str = "fast"
     enable_multi_platform: bool = False
+    enabled_platforms: tuple[str, ...] = ("B站", "酷安")
     subtitle_langs: tuple[str, ...] = ("zh-Hans", "zh", "zh-CN", "ai-zh", "en", "en-US")
     # Coolapk text-post recognition. Empty provider means reuse the default summary LLM.
     coolapk_summary_provider: str = ""
@@ -218,6 +219,13 @@ class PluginConfig:
         """Return the shared polling interval for every subscription update type."""
         return self.check_interval_minutes * 60
 
+    def is_platform_enabled(self, platform: str) -> bool:
+        aliases = {"bilibili": "B站", "youtube": "YouTube", "douyin": "抖音", "coolapk": "酷安"}
+        label = aliases.get(platform.casefold(), platform)
+        if self.enable_multi_platform and self.enabled_platforms == ("B站", "酷安"):
+            return label in {"B站", "YouTube", "抖音", "酷安"}
+        return label in self.enabled_platforms
+
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PluginConfig:
         flat = _flatten_groups(raw)
@@ -249,6 +257,11 @@ class PluginConfig:
                 flat.get("download_quality"), "fast", options=tuple(QUALITY_TO_KBPS.keys())
             ),
             enable_multi_platform=_coerce_bool(flat.get("enable_multi_platform"), False),
+            enabled_platforms=(
+                tuple(_split_csv(flat.get("enabled_platforms")))
+                if "enabled_platforms" in flat
+                else (("B站", "YouTube", "抖音", "酷安") if _coerce_bool(flat.get("enable_multi_platform"), False) else ("B站", "酷安"))
+            ),
             subtitle_langs=_split_csv(flat.get("subtitle_langs"))
             or ("zh-Hans", "zh", "zh-CN", "ai-zh", "en", "en-US"),
             coolapk_summary_provider=_coerce_str(flat.get("coolapk_summary_provider"), ""),

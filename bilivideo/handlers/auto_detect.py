@@ -329,6 +329,8 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
     # ==================== 酷安动态识别 ====================
     coolapk_url = extract_coolapk_url(coolapk_scan_text)
     if coolapk_url:
+        if not services.config.is_platform_enabled("coolapk"):
+            return
         try:
             post = await fetch_coolapk_post(coolapk_url)
         except Exception as exc:
@@ -353,7 +355,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
     # ==================== 🛠️ 抖音多开关高融合全面适配识别 ====================
     dy_match = DY_SHORT_RE.search(msg_str) or DY_LONG_RE.search(msg_str)
     if dy_match:
-        if not services.config.enable_multi_platform:
+        if not services.config.is_platform_enabled("douyin"):
             return
 
         raw_target_url = dy_match.group(1)
@@ -493,6 +495,8 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
 
     bvid = await _resolve_bvid(services, ctx, allow_full_text=not ctx.is_reply)
     if not bvid:
+        return
+    if not services.config.is_platform_enabled("bilibili"):
         return
 
     try:

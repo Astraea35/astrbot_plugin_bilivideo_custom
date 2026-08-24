@@ -98,11 +98,8 @@ async def handle_status(services: BiliVideoServices, event: object) -> AsyncIter
 
         llm_state = model_display
 
-    if cfg.enable_multi_platform:
-        yt_cookies = "有" if services.youtube_cookies.has() else "无"
-        multi_state = f"on (实验,仅 /总结;YT cookies:{yt_cookies})"
-    else:
-        multi_state = "off"
+    yt_cookies = "有" if services.youtube_cookies.has() else "无"
+    multi_state = f"{', '.join(cfg.enabled_platforms) or '无'} (YT cookies:{yt_cookies})"
 
     # 原始纯文本内容（用于降级）
     plain_body = (

@@ -105,6 +105,14 @@ def test_coolapk_vision_configuration_is_parsed() -> None:
     assert cfg.coolapk_summary_model == "vision-model"
 
 
+def test_enabled_platforms_are_independently_configurable() -> None:
+    cfg = PluginConfig.from_mapping({"enabled_platforms": ["B站", "YouTube"]})
+    assert cfg.is_platform_enabled("bilibili")
+    assert cfg.is_platform_enabled("youtube")
+    assert not cfg.is_platform_enabled("douyin")
+    assert not cfg.is_platform_enabled("coolapk")
+
+
 def test_legacy_access_fields_are_migrated() -> None:
     cfg = PluginConfig.from_mapping(
         {
