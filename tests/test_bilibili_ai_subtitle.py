@@ -87,6 +87,40 @@ class _UnusedTranscriber:
 
 
 @pytest.mark.asyncio
+async def test_ai_subtitle_discarded_if_timestamps_exceed_video_duration() -> None:
+    class _MismatchHTTP:
+        def __init__(self) -> None:
+            self.cookies = {"SESSDATA": "token"}
+
+        async def request_json(self, method: str, url: str, *, params=None):
+            if url == ENDPOINT_VIEW:
+                return {"code": 0, "data": {"cid": 42, "duration": 100}}  # 100s video
+            if url == ENDPOINT_PLAYER_V2:
+                return {
+                    "code": 0,
+                    "data": {
+                        "subtitle": {
+                            "subtitles": [
+                                {"lan": "ai-zh", "subtitle_url": "https://aisubtitle.hdslb.com/polluted.json"},
+                            ]
+                        }
+                    },
+                }
+            if url == "https://aisubtitle.hdslb.com/polluted.json":
+                return {
+                    "body": [
+                        {"from": 0, "to": 10, "content": "开头"},
+                        {"from": 500, "to": 600, "content": "污染时间戳(600s)"},
+                    ]
+                }
+            raise AssertionError(f"unexpected request: {url}")
+
+    client = _MismatchHTTP()
+    result = await get_bilibili_ai_subtitle(client, "https://www.bilibili.com/video/BV1xx411c7mD")
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_pipeline_uses_ai_subtitle_before_audio_asr(monkeypatch) -> None:
     expected = TranscriptResult(
         language="ai-zh",

@@ -171,6 +171,7 @@ async def get_bilibili_ai_subtitle(
         cid = view_data.get("cid") if isinstance(view_data, Mapping) else None
         if not cid:
             return None
+        video_duration = float(view_data.get("duration", 0) or 0) if isinstance(view_data, Mapping) else 0.0
         player = await client.request_json(
             "GET", ENDPOINT_PLAYER_V2, params={"bvid": bvid, "cid": int(cid)}
         )
@@ -221,6 +222,20 @@ async def get_bilibili_ai_subtitle(
                 start = end = 0.0
             segments.append(TranscriptSegment(start=start, end=max(start, end), text=text))
         if segments:
+            last_end = max(segment.end for segment in segments)
+            if video_duration > 0:
+                if last_end > video_duration * 1.25 + 30:
+                    logger.warning(
+                        f"Bilibili AI subtitle discarded for {bvid}: subtitle timestamp ({last_end:.1f}s) "
+                        f"far exceeds video duration ({video_duration:.1f}s), possible stale/polluted data"
+                    )
+                    continue
+                if video_duration > 60 and last_end < video_duration * 0.3 and len(segments) < 20:
+                    logger.warning(
+                        f"Bilibili AI subtitle discarded for {bvid}: incomplete subtitle coverage "
+                        f"({last_end:.1f}s / {video_duration:.1f}s)"
+                    )
+                    continue
             language = str(entry.get("lan") or "ai-zh")
             logger.info(f"Bilibili AI subtitle hit for {bvid} ({language}, {len(segments)} segments)")
             return TranscriptResult(
