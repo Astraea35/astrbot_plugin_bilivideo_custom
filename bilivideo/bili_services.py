@@ -135,6 +135,9 @@ class BiliVideoServices:
         self.scheduler: CheckScheduler | None = None
         self.dynamic_listener: object | None = None
 
+        # Track in-flight long jobs (e.g. AI search download)
+        self._download_task: asyncio.Task | None = None
+
         # Anti-spam
         self.cooldown = CooldownTracker(window_seconds=config.user_cooldown_seconds)
         self.inflight: InflightDeduper[str, object] = InflightDeduper()
@@ -158,30 +161,6 @@ class BiliVideoServices:
         )
         self.zhihu_client = ZhihuClient(config.zhihu_cookie)
         self.orchestrator.set_zhihu_llm(self.zhihu_llm)
-
-        # Track in-flight long jobs (e.g. AI search download)
-        self._download_task: asyncio.Task | None = None
-
-        # AI 服务故障自动重试机制
-        orig_generate = self.orchestrator.generate
-
-        async def generate_with_retry(url: str, *args, **kwargs):
-            max_retries = 3
-            delay_seconds = 180
-
-            for attempt in range(1, max_retries + 1):
-                try:
-                    return await orig_generate(url, *args, **kwargs)
-                except Exception as exc:
-                    if attempt == max_retries:
-                        raise exc
-                    self.logger.warning(
-                        f"🤖 触发 AI 服务高阶重试网闸：当前视频总结生成失败（原因: {exc}）。"
-                        f"系统将在 3 分钟后执行第 {attempt}/{max_retries} 次硬性自动重试..."
-                    )
-                    await asyncio.sleep(delay_seconds)
-
-        self.orchestrator.generate = generate_with_retry
 
     # ------------------------------------------------------------------
     # cookie/login helpers used by handlers

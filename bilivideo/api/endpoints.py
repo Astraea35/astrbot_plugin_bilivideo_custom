@@ -7,6 +7,7 @@ dicts. Errors propagate as exceptions from `core.exceptions`.
 
 from __future__ import annotations
 
+import html
 import re
 from collections.abc import Mapping
 from urllib.parse import urlparse
@@ -15,6 +16,7 @@ from ..cache.lru_ttl import LRUTTLCache
 from ..core.constants import (
     ENDPOINT_SEARCH_TYPE,
     ENDPOINT_SEARCH_TYPE_WBI,
+    ENDPOINT_POPULAR,
     ENDPOINT_PLAYER_V2,
     ENDPOINT_REPLY,
     ENDPOINT_USER_INFO,
@@ -44,6 +46,70 @@ from .wbi import sign_params
 logger = get_logger("BiliVideo/API")
 
 _HIGHLIGHT_RE = re.compile(r'</?em[^>]*>')
+
+
+def _safe_media_url(raw_url: object) -> str:
+    """Accept only HTTPS Bilibili-hosted media for comment HTML."""
+    url = str(raw_url or "").strip()
+    if url.startswith("//"):
+        url = "https:" + url
+    if url.startswith("http://"):
+        url = "https://" + url[7:]
+    if not url.startswith("https://"):
+        return ""
+    host = url.split("/", 3)[2].lower().split(":", 1)[0]
+    if host == "bilibili.com" or host.endswith(".bilibili.com") or host.endswith(".hdslb.com"):
+        return url
+    return ""
+
+
+def _comment_content_html(content: object, *, limit: int) -> tuple[str, str]:
+    """Convert Bilibili comment text/emotes/pictures to safe inline HTML."""
+    if not isinstance(content, Mapping):
+        return "", ""
+    message = str(content.get("message") or "").strip()
+    if len(message) > limit:
+        message = message[: limit - 1].rstrip() + "…"
+    escaped = html.escape(message)
+
+    emotes = content.get("emote")
+    if isinstance(emotes, Mapping):
+        for placeholder, raw in emotes.items():
+            if not isinstance(placeholder, str) or not isinstance(raw, Mapping):
+                continue
+            icon_url = _safe_media_url(raw.get("url") or raw.get("icon_url"))
+            if icon_url and placeholder in message:
+                icon = (
+                    f'<img class="comment-emote" src="{html.escape(icon_url, quote=True)}" '
+                    'alt="表情" loading="eager" referrerpolicy="no-referrer">'
+                )
+                escaped = escaped.replace(html.escape(placeholder), icon)
+
+    media_urls: list[str] = []
+    raw_pictures = content.get("pictures") or content.get("picture") or content.get("image_urls")
+    if isinstance(raw_pictures, Mapping):
+        raw_pictures = [raw_pictures]
+    if isinstance(raw_pictures, list):
+        for picture in raw_pictures:
+            if not isinstance(picture, Mapping):
+                continue
+            picture_url = _safe_media_url(
+                picture.get("img_src") or picture.get("url") or picture.get("src")
+            )
+            if picture_url:
+                media_urls.append(picture_url)
+    elif isinstance(raw_pictures, str):
+        picture_url = _safe_media_url(raw_pictures)
+        if picture_url:
+            media_urls.append(picture_url)
+
+    if media_urls:
+        escaped += "".join(
+            f'<img class="comment-picture" src="{html.escape(url, quote=True)}" '
+            'alt="评论图片" loading="eager" referrerpolicy="no-referrer">'
+            for url in media_urls
+        )
+    return message, escaped
 
 
 def _strip_highlight(text: str) -> str:
@@ -249,8 +315,8 @@ async def get_featured_comments(
         member = item.get("member")
         content = item.get("content")
         author_name = str(member.get("uname") or "B站用户") if isinstance(member, Mapping) else "B站用户"
-        message = str(content.get("message") or "").strip() if isinstance(content, Mapping) else ""
-        if not message:
+        message, message_html = _comment_content_html(content, limit=300)
+        if not message and not message_html:
             continue
         raw_replies = item.get("replies")
         replies: list[FeaturedCommentReply] = []
@@ -265,17 +331,14 @@ async def get_featured_comments(
                     if isinstance(reply_member, Mapping)
                     else "B站用户"
                 )
-                reply_message = (
-                    str(reply_content.get("message") or "").strip()
-                    if isinstance(reply_content, Mapping)
-                    else ""
-                )
-                if reply_message:
+                reply_message, reply_html = _comment_content_html(reply_content, limit=160)
+                if reply_message or reply_html:
                     replies.append(
                         FeaturedCommentReply(
                             author_name=reply_name,
                             content=reply_message,
                             like=int(reply.get("like", 0) or 0),
+                            content_html=reply_html,
                         )
                     )
         comments.append(
@@ -284,6 +347,7 @@ async def get_featured_comments(
                 content=message,
                 like=int(item.get("like", 0) or 0),
                 replies=tuple(replies),
+                content_html=message_html,
             )
         )
         if len(comments) >= count:
@@ -515,3 +579,31 @@ async def get_live_info_by_uids(client: BilibiliHTTPClient, uids: list[int]) -> 
     except Exception as e:
         logger.error(f"get_live_info_by_uids({uids}) failed: {e}")
         return None
+
+
+async def get_hot_videos(
+    client: BilibiliHTTPClient,
+    *,
+    pn: int = 1,
+    ps: int = 20,
+) -> dict | None:
+    """获取 B 站全站热门视频列表。
+    接口: https://api.bilibili.com/x/web-interface/popular
+    """
+    params = {"pn": pn, "ps": ps}
+    try:
+        payload = await client.request_json(
+            "GET",
+            ENDPOINT_POPULAR,
+            params=params,
+        )
+        if payload.get("code") == 0:
+            return payload.get("data", {})
+        logger.warning(
+            f"get_hot_videos(pn={pn}, ps={ps}) returned code {payload.get('code')}: {payload.get('message')}"
+        )
+        return None
+    except Exception as e:
+        logger.error(f"get_hot_videos(pn={pn}, ps={ps}) failed: {e}")
+        return None
+

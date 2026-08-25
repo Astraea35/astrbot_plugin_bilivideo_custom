@@ -170,7 +170,7 @@ def _build_summary_render_markdown(
             '<div class="comment-reply">'
             f'<span class="comment-reply-name">{html.escape(reply.author_name)}</span>'
             f'<span class="comment-like">获赞 {reply.like}</span>'
-            f'<div>{html.escape(_shorten(reply.content, 160))}</div>'
+            f'<div>{reply.content_html or html.escape(_shorten(reply.content, 160))}</div>'
             '</div>'
             for reply in comment.replies
         )
@@ -183,7 +183,7 @@ def _build_summary_render_markdown(
             f'<span class="comment-author">{html.escape(comment.author_name)}</span>'
             f'<span class="comment-like">获赞 {comment.like}</span>'
             '</div></div>'
-            f'<p class="comment-body">{html.escape(_shorten(comment.content, 300))}</p>'
+            f'<div class="comment-body">{comment.content_html or html.escape(_shorten(comment.content, 300))}</div>'
             f'<div class="comment-replies">{replies}</div>'
             '</article>'
         )

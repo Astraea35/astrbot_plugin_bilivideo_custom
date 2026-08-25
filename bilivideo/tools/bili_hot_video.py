@@ -10,6 +10,8 @@ from mcp.types import CallToolResult
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
+from ..api.endpoints import get_hot_videos, search_videos
+
 DEFAULT_LIMIT = 8
 MAX_LIMIT = 20
 MIN_LIMIT = 1
@@ -194,23 +196,35 @@ class BiliSearchHotVideosTool(FunctionTool):
         normalized_sort = _normalize_sort(sort, has_keyword=bool(normalized_keyword))
 
         if normalized_keyword:
-            payload = await self.bili_client.search_videos(
-                normalized_keyword,
+            result = await search_videos(
+                self.bili_client,
+                keyword=normalized_keyword,
                 order=normalized_sort,
                 page=normalized_page,
                 page_size=normalized_limit,
-                video_zone_type=tid,
+                tids=tid or 0,
             )
-            if not payload:
-                return "搜索热门视频失败，请稍后重试。"
-            items = _extract_search_items(payload)
-            if not items:
+            if not result or not result.results:
                 return "未找到符合条件的视频。可以换个关键词或排序方式。"
+            items = [
+                {
+                    "title": item.title,
+                    "bvid": item.bvid,
+                    "author": item.author,
+                    "play": item.play,
+                    "video_review": item.danmaku,
+                    "like": item.like,
+                    "pubdate": item.pubdate,
+                }
+                for item in result.results
+            ]
             title = f"B站热门视频搜索结果（关键词：{normalized_keyword}，排序：{normalized_sort}）"
             return _format_result(title, items[:normalized_limit], source="search")
 
-        payload = await self.bili_client.get_hot_videos(
-            pn=normalized_page, ps=normalized_limit
+        payload = await get_hot_videos(
+            self.bili_client,
+            pn=normalized_page,
+            ps=normalized_limit,
         )
         if not payload:
             return "获取B站热门视频失败，请稍后重试。"

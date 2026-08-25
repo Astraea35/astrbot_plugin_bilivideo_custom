@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.4.4
+
+- 本次更新集中修复了近期发现的多项核心指令崩溃、大模型 AI 工具调用异常、重连静默模式启动报错，以及 WebUI 配置保存丢失等问题，大幅提升了插件的稳定性与用户体验。
+---
+- ### 🐛 重点 Bug 修复
+- #### 1. 🛠️ AI 扩展工具（Function Calling）全面修复
+- **热门视频与动态查询**：修复了大模型在调用 `bili_search_hot_videos`（热门视频）和 `bili_get_user_dynamics`（UP 主近期动态）时，因底层客户端方法未适配抛出 `AttributeError` 的崩溃问题。
+- **新增全站热门接口**：接入 B 站官方热门视频 API 端点（`get_hot_videos`），支持按页码和数量拉取全站高热视频。
+- **动态解析过滤优化**：修复大模型查询 UP 主动态时因默认订阅过滤规则误将所有动态拦截的问题，现可正常返回图文、专栏、转发等全类型动态结构化文本。
+- #### 2. ⚡ 核心指令与管理员命令修复
+- **卡片样式切换**：修复 `/bili_card_style` 与 `/卡片样式` 因缺少 `parse_command_args` 导入导致的 `NameError` 报错，并清理了文件 UTF-8 BOM 字符。
+- **全局订阅指令**：修复 `/bili_global_sub`（`/全局订阅`）因缺少 API 模块导入导致无法通过 UID 或用户名全局订阅的崩溃问题。
+- #### 3. 🛡️ 插件启动与生命周期稳定性优化
+- **重连静默初始化修复**：修复当启用 `reconnect_silent` 且距上次推送时间较长时，在启动阶段同步调用异步协程引发 `TypeError: object of type 'coroutine' has no len()` 导致插件加载崩溃的问题。
+- **服务实例安全性**：规范 `_download_task` 初始化时机，防止在未触发热重载前调用 `shutdown()` 抛出 `AttributeError`。
+- **重试机制优化**：移除了热重载中对视频总结生成的冗余多层嵌套重试包装，避免长时间阻塞事件循环。
+- **动态监听器空指针防范**：优化 AI 工具注册阶段的空值判定，避免 `dynamic_listener` 未就绪时的属性访问报错。
+---
+- ### ✨ 功能增强与细节优化
+- **📢 开播 @全体成员 修复**：在直播开播推送消息链中正确集成 `AtAll` 组件。开启 `/订阅开播@全体` 后，UP 主开播时将正常提醒全体成员（下播通知不会打扰）。
+- **🌐 WebUI 配置项补齐**：在 WebUI 后台配置分组中补充了 `enable_bilibili_ai_subtitle`（B 站官方 AI 字幕优先）、`summary_featured_comment_count`（精选评论数）及 `summary_comment_reply_count`（评论楼中楼数），防止在网页端保存设置时配置项被意外过滤丢失。
+---
+- ### 📦 变更文件一览
+- `bilivideo/api/endpoints.py`
+- `bilivideo/core/constants.py`
+- `bilivideo/bili_services.py`
+- `bilivideo/handlers/style_switch.py`
+- `bilivideo/handlers/admin_commands.py`
+- `bilivideo/services/listener.py`
+- `bilivideo/tools/bili_hot_video.py`
+- `bilivideo/tools/bili_user_dynamics.py`
+- `bilivideo/tools/registry.py`
+- `bilivideo/webui.py`
+- `main.py`
+
 ## v2.4.3
 
 - v2.4.3 自动更新

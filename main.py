@@ -203,7 +203,15 @@ class BiliVideoPlugin(Star):
             self._tag.info(f"重连静默未触发：距上次成功推送仅 {idle_secs} 秒（阈值 {threshold} 秒）。")
             return
 
-        uid_count = len(self.dynamic_listener._build_uid_targets())
+        subs_dict = getattr(self._services.subscription_manager._store, "_data", {}).get("subscriptions", {})
+        unique_uids = {
+            sub.get("mid")
+            for sub_list in subs_dict.values()
+            if isinstance(sub_list, list)
+            for sub in sub_list
+            if isinstance(sub, dict) and sub.get("mid")
+        }
+        uid_count = len(unique_uids)
         silent_duration = config.subscription_check_interval_seconds + config.task_gap_secs * uid_count + 60
         silent_until_ts = now_ts + silent_duration
         self.dispatcher.set_silent_until_ts(silent_until_ts)

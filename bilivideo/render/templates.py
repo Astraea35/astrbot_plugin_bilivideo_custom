@@ -190,6 +190,8 @@ strong { color: var(--title-color); font-weight: 700; }
 .comment-author { color: var(--title-color); font-size: 19px; font-weight: 800; }
 .comment-like { margin-left: 8px; color: #64748b; font-size: 15px; font-weight: 500; }
 .comment-body { margin: 12px 0 0 52px; padding-left: 16px; border-left: 4px solid #fb7299; }
+.comment-emote { display: inline-block; width: 28px; height: 28px; object-fit: contain; vertical-align: -7px; margin: 0 2px; }
+.comment-picture { display: block; max-width: min(100%, 720px); max-height: 420px; object-fit: contain; object-position: left center; margin: 12px 0 0; border-radius: 8px; }
 .comment-replies { margin: 14px 0 0 52px; display: grid; gap: 12px; }
 .comment-reply { padding: 12px 14px; background: var(--header-bg); border-left: 3px solid var(--border); font-size: 18px; }
 .comment-reply-name { color: var(--title-color); font-weight: 800; }

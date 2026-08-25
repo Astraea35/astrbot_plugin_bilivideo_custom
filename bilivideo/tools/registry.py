@@ -169,7 +169,7 @@ def register_ai_tools(services: BiliVideoServices, astrbot_context: object) -> N
     hot_video_tool = BiliSearchHotVideosTool(bili_client=services.http_client)
     user_dynamics_tool = BiliUserDynamicsTool(
         bili_client=services.http_client,
-        parse_dynamics=services.dynamic_listener._parse_and_filter_dynamics if hasattr(services, "dynamic_listener") else None,
+        parse_dynamics=getattr(getattr(services, "dynamic_listener", None), "_parse_and_filter_dynamics", None),
     )
 
     add = getattr(astrbot_context, "add_llm_tools", None)

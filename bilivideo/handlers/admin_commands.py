@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 from ..access.control import is_admin, is_auto_summary_allowed
+from ..api.endpoints import get_latest_videos, get_uploader_info
 from ..core.utils import is_valid_umo
 from ..services import BiliVideoServices
 from ._utils import parse_sub_args, parse_command_args, build_filter_desc

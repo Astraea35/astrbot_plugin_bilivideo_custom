@@ -60,6 +60,7 @@ ENDPOINT_USER_VIDEOS: Final[str] = f"{API_BASE}/x/space/wbi/arc/search"
 ENDPOINT_USER_VIDEOS_LEGACY: Final[str] = f"{API_BASE}/x/space/arc/search"
 ENDPOINT_SEARCH_TYPE_WBI: Final[str] = f"{API_BASE}/x/web-interface/wbi/search/type"
 ENDPOINT_SEARCH_TYPE: Final[str] = f"{API_BASE}/x/web-interface/search/type"
+ENDPOINT_POPULAR: Final[str] = f"{API_BASE}/x/web-interface/popular"
 ENDPOINT_QR_GENERATE: Final[str] = f"{PASSPORT_BASE}/x/passport-login/web/qrcode/generate"
 ENDPOINT_QR_POLL: Final[str] = f"{PASSPORT_BASE}/x/passport-login/web/qrcode/poll"
 

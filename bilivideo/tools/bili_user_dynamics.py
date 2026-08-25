@@ -8,6 +8,7 @@ from mcp.types import CallToolResult
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
+from ..api.endpoints import get_latest_dynamics, get_uploader_info
 from ..core.utils import render_text_to_plain
 from ..subscription.manager import Subscription
 
@@ -110,8 +111,8 @@ class BiliUserDynamicsTool(FunctionTool):
             raise RuntimeError("bilibili dynamics tool 未正确初始化")
 
         normalized_limit = _normalize_limit(limit)
-        user_info, _ = await self.bili_client.get_user_info(int(uid))
-        dynamics = await self.bili_client.get_latest_dynamics(int(uid))
+        user_info = await get_uploader_info(self.bili_client, str(uid))
+        dynamics = await get_latest_dynamics(self.bili_client, int(uid))
 
         if not dynamics:
             return (
@@ -120,7 +121,7 @@ class BiliUserDynamicsTool(FunctionTool):
 
         parsed_results = self.parse_dynamics(
             dynamics,
-            Subscription(mid=str(uid)),
+            Subscription(mid=str(uid), sub_types=["动态", "图文", "转发", "专栏", "抽奖", "转发抽奖"]),
         )
 
         payload_blocks: list[str] = []
@@ -142,9 +143,7 @@ class BiliUserDynamicsTool(FunctionTool):
         if not payload_blocks:
             return "该 UP 主最近没有可解析的动态，或者动态都被过滤屏蔽了。"
 
-        up_name = "未知UP"
-        if isinstance(user_info, dict):
-            up_name = str(user_info.get("name", "") or up_name)
+        up_name = user_info.name if user_info and user_info.name else "未知UP"
 
         lines = [
             f"UP主: {up_name}",

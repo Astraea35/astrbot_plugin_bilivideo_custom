@@ -50,6 +50,7 @@ class FeaturedCommentReply:
     author_name: str
     content: str
     like: int = 0
+    content_html: str = ""
 
 
 @dataclass(slots=True, frozen=True)
@@ -58,6 +59,7 @@ class FeaturedComment:
     content: str
     like: int = 0
     replies: tuple[FeaturedCommentReply, ...] = ()
+    content_html: str = ""
 
 
 @dataclass(slots=True, frozen=True)

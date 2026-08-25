@@ -42,7 +42,7 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
     "platforms": ("enabled_platforms",),
     "general": ("debug_mode", "processing_timeout", "user_cooldown_seconds", "task_gap_secs", "reconnect_silent", "reconnect_silent_threshold_secs", "recent_dynamic_cache", "dynamic_limit"),
     "llm": ("llm_provider", "astrbot_provider_id", "llm_provider_id", "llm_api_base", "llm_api_key", "llm_model", "llm_temperature", "enable_fallback", "backup_provider_id", "bangumi_token"),
-    "summary": ("note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle", "subtitle_langs", "download_quality"),
+    "summary": ("note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle", "enable_bilibili_ai_subtitle", "summary_featured_comment_count", "summary_comment_reply_count", "subtitle_langs", "download_quality"),
     "coolapk": ("coolapk_summary_provider", "coolapk_summary_model"),
     "zhihu": ("zhihu_cookie", "zhihu_summary_provider", "zhihu_summary_model"),
     "render": ("output_image", "theme", "renderer_template", "custom_font_path", "image_scale_factor", "image_width", "image_output_format", "image_quality", "enable_auto_split", "max_cards_per_image", "image_font_size"),

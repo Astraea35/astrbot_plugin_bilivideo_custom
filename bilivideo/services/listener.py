@@ -690,20 +690,24 @@ class DynamicListener:
         is_live_now = live_room.get("live_status", "") == 1
         if is_live_now and not sub.is_live:
             text = f"📣 你订阅的UP 「{sub.name}」 开播了！"
-            await self._send_live_notice(origin, text, live_room, sub)
+            await self._send_live_notice(origin, text, live_room, sub, is_live_start=True)
             sub.is_live = True
             await self.sub_manager.update_live_status(origin, sub.mid, True)
             return True
         elif not is_live_now and sub.is_live:
             text = f"📣 你订阅的UP 「{sub.name}」 下播了！"
-            await self._send_live_notice(origin, text, live_room, sub)
+            await self._send_live_notice(origin, text, live_room, sub, is_live_start=False)
             sub.is_live = False
             await self.sub_manager.update_live_status(origin, sub.mid, False)
             return True
         return False
 
-    async def _send_live_notice(self, origin: str, text: str, live_room: Dict, sub: Subscription):
-        chain = [Plain(text)]
+    async def _send_live_notice(self, origin: str, text: str, live_room: Dict, sub: Subscription, is_live_start: bool = False):
+        chain = []
+        if is_live_start and getattr(sub, "live_atall", False) and AtAll is not None:
+            chain.append(AtAll())
+            chain.append(Plain(" "))
+        chain.append(Plain(text))
         room_id = live_room.get("room_id", 0)
         if room_id:
             chain.append(Plain(f"\nhttps://live.bilibili.com/{room_id}"))

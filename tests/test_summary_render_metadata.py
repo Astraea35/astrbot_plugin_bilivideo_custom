@@ -88,3 +88,31 @@ async def test_featured_comments_extracts_comment_and_reply() -> None:
     assert comments[0].author_name == "评论者"
     assert comments[0].content == "主评论"
     assert comments[0].replies[0].author_name == "回复者"
+
+
+@pytest.mark.asyncio
+async def test_featured_comments_preserves_emotes_and_pictures_as_html() -> None:
+    class _RichCommentClient:
+        async def request_json(self, _method, _url, *, params=None):
+            return {
+                "data": {
+                    "replies": [
+                        {
+                            "member": {"uname": "图文评论者"},
+                            "content": {
+                                "message": "好耶[doge]",
+                                "emote": {"[doge]": {"url": "http://i0.hdslb.com/emote.png"}},
+                                "pictures": [{"img_src": "//i0.hdslb.com/comment.jpg"}],
+                            },
+                            "replies": [],
+                        }
+                    ]
+                }
+            }
+
+    comments = await get_featured_comments(_RichCommentClient(), _video(), count=1, reply_count=0)
+
+    assert '<img class="comment-emote"' in comments[0].content_html
+    assert 'src="https://i0.hdslb.com/emote.png"' in comments[0].content_html
+    assert '<img class="comment-picture"' in comments[0].content_html
+    assert "[doge]" not in comments[0].content_html

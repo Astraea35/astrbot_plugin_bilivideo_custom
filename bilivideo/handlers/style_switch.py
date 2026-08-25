@@ -1,4 +1,4 @@
-﻿"""卡片样式切换命令: /bili_card_style"""
+"""卡片样式切换命令: /bili_card_style"""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from dataclasses import replace
 from ..access.control import is_admin
 from ..core.constants import CARD_TEMPLATES, get_template_names, DEFAULT_TEMPLATE
 from ..services import BiliVideoServices
+from ._utils import parse_command_args
 
 
 async def handle_card_style(services: BiliVideoServices, event: object) -> AsyncIterator[object]:
