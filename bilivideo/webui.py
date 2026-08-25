@@ -16,7 +16,7 @@ from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 
-from .core.config import PluginConfig
+from .core.config import PluginConfig, normalize_list_for_json
 
 try:
     from astrbot.api.web import PluginUploadFile, error_response, file_response, json_response, request
@@ -95,9 +95,7 @@ def _json_value(value: Any) -> Any:
 
 
 def _csv_values(value: Any) -> list[str]:
-    if isinstance(value, (list, tuple)):
-        return [str(item).strip() for item in value if str(item).strip()]
-    return [item.strip() for item in str(value or "").split(",") if item.strip()]
+    return normalize_list_for_json(value)
 
 
 def _mime_for_path(path: Path) -> str:
@@ -293,6 +291,8 @@ class PluginWebUI:
                 continue
             if field_name in SECRET_FIELDS and not str(value or "").strip() and field_name not in clear_secrets:
                 continue
+            if field_name in LIST_FIELDS:
+                value = normalize_list_for_json(value)
             group = next(group for group, fields_in_group in CONFIG_GROUPS.items() if field_name in fields_in_group)
             if isinstance(candidate.get(group), dict):
                 candidate[group][field_name] = value

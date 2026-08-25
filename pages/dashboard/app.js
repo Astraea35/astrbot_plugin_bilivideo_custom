@@ -1,4 +1,4 @@
-﻿const bridge = window.AstrBotPluginPage;
+const bridge = window.AstrBotPluginPage;
 const state = { context: null, data: null, localTheme: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -170,9 +170,16 @@ function collectSettings() {
   const settings = {};
   $$('[data-config]').forEach((element) => {
     const key = element.dataset.config;
-    if (element.dataset.kind === "switch") settings[key] = element.checked;
-    else if (element.dataset.kind === "number") settings[key] = element.value === "" ? "" : Number(element.value);
-    else settings[key] = element.value;
+    if (element.dataset.kind === "switch") {
+      settings[key] = element.checked;
+    } else if (element.dataset.kind === "number") {
+      settings[key] = element.value === "" ? "" : Number(element.value);
+    } else if (element.dataset.list === "true") {
+      const raw = element.value.replace(/，/g, ",").replace(/；/g, ",").replace(/;/g, ",");
+      settings[key] = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    } else {
+      settings[key] = element.value;
+    }
   });
   return settings;
 }

@@ -1,4 +1,4 @@
-﻿"""Config validation tests."""
+"""Config validation tests."""
 
 from __future__ import annotations
 
@@ -125,3 +125,25 @@ def test_legacy_access_fields_are_migrated() -> None:
     assert cfg.access_list == ("100", "200")
     assert cfg.manual_summary_mode == "blacklist"
     assert cfg.manual_summary_list == ("300",)
+
+
+def test_corrupted_single_char_list_healing() -> None:
+    # Simulates what happens if AstrBot WebUI iterated over "709532435, 746238535" and stored single chars
+    corrupted = ["7", "0", "9", "5", "3", "2", "4", "3", "5", ",", " ", "7", "4", "6", "2", "3", "8", "5", "3", "5"]
+    cfg = PluginConfig.from_mapping({"access_list": corrupted})
+    assert cfg.access_list == ("709532435", "746238535")
+
+
+def test_chinese_comma_and_mixed_list_healing() -> None:
+    cfg = PluginConfig.from_mapping(
+        {"access_list": "709532435， 746238535; 1080530485\n201698347"}
+    )
+    assert cfg.access_list == ("709532435", "746238535", "1080530485", "201698347")
+
+
+def test_list_containing_unsplit_comma_string() -> None:
+    cfg = PluginConfig.from_mapping(
+        {"access_list": ["709532435, 746238535", "1080530485"]}
+    )
+    assert cfg.access_list == ("709532435", "746238535", "1080530485")
+

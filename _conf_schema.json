@@ -54,7 +54,12 @@
       "enable_bilibili_ai_subtitle": { "type": "bool", "default": true, "description": "获取 B 站 AI 字幕", "hint": "常规字幕不可用时，使用已登录 B 站账号可访问的 AI 字幕；获取失败后才下载音频转写" },
       "summary_featured_comment_count": { "type": "int", "default": 2, "min": 0, "max": 5, "description": "总结长图前排评论数", "hint": "默认随机展示 2 条热门评论；设为 0 可关闭。" },
       "summary_comment_reply_count": { "type": "int", "default": 1, "min": 0, "max": 3, "description": "每条评论显示回复数", "hint": "默认显示 1 条回复；设为 0 不显示回复。" },
-      "subtitle_langs": { "type": "string", "default": "zh-Hans,zh,zh-CN,ai-zh,en,en-US", "description": "字幕语言优先顺序", "hint": "逗号分隔，按优先级排列" },
+      "subtitle_langs": {
+        "type": "list",
+        "default": ["zh-Hans", "zh", "zh-CN", "ai-zh", "en", "en-US"],
+        "description": "字幕语言优先顺序",
+        "hint": "字幕语言匹配优先级列表，自上而下优先匹配（支持添加更多）"
+      },
       "download_quality": { "type": "string", "default": "fast", "options": ["fast", "medium", "slow"], "description": "音频质量", "hint": "fast=32k / medium=64k / slow=128k" }
     }
   },
@@ -128,7 +133,16 @@
       "detect_show_link": { "type": "bool", "default": true, "description": "推送链接" },
       "detect_show_stats": { "type": "bool", "default": true, "description": "推送播放数据" },
       "detect_auto_summary": { "type": "bool", "default": false, "description": "自动总结", "hint": "开启会消耗 LLM 额度" },
-      "trigger_keywords": { "type": "string", "default": "总结,看看,看一下,看下,分析,讲的啥,讲什么,说的啥,说什么,内容,视频,这个,这视频,帮我看,帮忙看,解析,翻译,summary,summarize,analyze,video,watch,check,see", "description": "引用消息触发关键词", "hint": "逗号分隔。引用消息只有命中关键词才会触发自动识别" }
+      "trigger_keywords": {
+        "type": "list",
+        "default": [
+          "总结", "看看", "看一下", "看下", "分析", "讲的啥", "讲什么", "说的啥", "说什么",
+          "内容", "视频", "这个", "这视频", "帮我看", "帮忙看", "解析", "翻译",
+          "summary", "summarize", "analyze", "video", "watch", "check", "see"
+        ],
+        "description": "引用消息触发关键词",
+        "hint": "引用消息只有命中列表中的关键词才会触发自动识别（支持点击「添加更多」）"
+      }
     }
   },
   "subscription": {
@@ -160,11 +174,26 @@
     "type": "object",
     "items": {
       "access_mode": { "type": "string", "default": "all", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "总访问范围", "hint": "所有普通插件命令都需先通过此范围；白名单为空时全部拒绝，黑名单为空时全部允许。" },
-      "access_list": { "type": "string", "default": "", "description": "总访问名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。名单会精确匹配当前会话或消息发送者。" },
+      "access_list": {
+        "type": "list",
+        "default": [],
+        "description": "总访问名单",
+        "hint": "填写群号或用户 ID（点击右侧「添加更多」）。名单会精确匹配当前会话或消息发送者。"
+      },
       "manual_summary_mode": { "type": "string", "default": "all", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "手动总结范围", "hint": "控制 /总结 和视频点播总结；此范围不能突破总访问范围。" },
-      "manual_summary_list": { "type": "string", "default": "", "description": "手动总结名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。" },
+      "manual_summary_list": {
+        "type": "list",
+        "default": [],
+        "description": "手动总结名单",
+        "hint": "填写群号或用户 ID（点击右侧「添加更多」）。"
+      },
       "auto_summary_mode": { "type": "string", "default": "private_only", "options": ["all", "private_only", "whitelist", "blacklist"], "description": "自动总结范围", "hint": "控制链接识别和订阅推送自动总结；不通过时订阅会自动改为仅推送提醒。" },
-      "auto_summary_list": { "type": "string", "default": "", "description": "自动总结名单", "hint": "填写群号或用户 ID，使用英文逗号分隔。" }
+      "auto_summary_list": {
+        "type": "list",
+        "default": [],
+        "description": "自动总结名单",
+        "hint": "填写群号或用户 ID（点击右侧「添加更多」）。"
+      }
     }
   },
   "search": {

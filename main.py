@@ -17,7 +17,7 @@ from astrbot.api.star import Context, Star, StarTools
 
 from .bilivideo import handlers
 from .bilivideo.bili_services import BiliVideoServices
-from .bilivideo.core.config import PluginConfig
+from .bilivideo.core.config import PluginConfig, normalize_list_for_json
 from .bilivideo.core.data_manager import DataManager
 from .bilivideo.core.logging import get_logger
 from .bilivideo.handlers.scheduled_push import push_callback
@@ -29,12 +29,60 @@ from .bilivideo.tools import register_ai_tools
 from .bilivideo.webui import PluginWebUI
 
 
+def _migrate_and_sanitize_config(config_dict: dict) -> bool:
+    """Ensure all list-type fields in config_dict are properly formatted as list[str].
+
+    Prevents and heals the single-character split issue across all list settings.
+    """
+    if not isinstance(config_dict, dict):
+        return False
+
+    modified = False
+    list_fields = {
+        "access_list": "access",
+        "manual_summary_list": "access",
+        "auto_summary_list": "access",
+        "trigger_keywords": "detect",
+        "subtitle_langs": "summary",
+        "enabled_platforms": "platforms",
+    }
+
+    for field, group in list_fields.items():
+        # Check in nested group
+        if group in config_dict and isinstance(config_dict[group], dict) and field in config_dict[group]:
+            val = config_dict[group][field]
+            normalized = normalize_list_for_json(val)
+            if val != normalized:
+                config_dict[group][field] = normalized
+                modified = True
+        # Check at root level
+        if field in config_dict:
+            val = config_dict[field]
+            normalized = normalize_list_for_json(val)
+            if val != normalized:
+                config_dict[field] = normalized
+                modified = True
+
+    return modified
+
+
 class BiliVideoPlugin(Star):
     """AstrBot plugin entry. Registers commands and delegates to handlers."""
 
     def __init__(self, context: Context, config: dict) -> None:
         super().__init__(context)
         self.config = config
+
+        # 0. 自动迁移与清洗历史配置中的列表项（避免单字符拆分等历史异常）
+        if isinstance(config, dict) and _migrate_and_sanitize_config(config):
+            save_fn = getattr(config, "save_config", None)
+            if callable(save_fn):
+                try:
+                    res = save_fn()
+                    if asyncio.iscoroutine(res):
+                        asyncio.create_task(res)
+                except Exception:
+                    pass
 
         # 1. 加载配置
         plugin_config = PluginConfig.from_mapping(config or {})

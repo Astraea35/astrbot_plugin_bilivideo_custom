@@ -78,13 +78,59 @@ def _coerce_url_base(raw: Any) -> str:
     return value
 
 
-def _split_csv(raw: Any) -> tuple[str, ...]:
-    """Split a 'a,b,c' style string into a tuple of stripped non-empty pieces."""
-    if not raw:
-        return ()
-    if isinstance(raw, (list, tuple)):
-        return tuple(str(x).strip() for x in raw if str(x).strip())
-    return tuple(part.strip() for part in str(raw).split(",") if part.strip())
+def normalize_list(raw: Any, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """Normalize any list/string representation into a tuple of clean non-empty string tokens.
+
+    Handles:
+    - Comma/newline/semicolon-separated strings: "100, 200, 300"
+    - Proper lists: ["100", "200"]
+    - Elements containing commas: ["100, 200", "300"]
+    - Corrupted single-character arrays (from past schema mismatches): ['7', '0', '9', '5', ',', ' ', '7', '4', ...]
+    """
+    if raw is None or raw == "":
+        return default
+
+    if isinstance(raw, str):
+        cleaned_str = raw.replace("，", ",").replace("；", ",").replace(";", ",").replace("\n", ",")
+        parts = [p.strip() for p in cleaned_str.split(",") if p.strip()]
+        return tuple(parts) if parts else default
+
+    if isinstance(raw, (list, tuple, set)):
+        items = [str(x).strip() for x in raw if str(x).strip()]
+        if not items:
+            return default
+
+        # Detect single-character corruption: e.g. ['7', '0', '9', '5', '3', '2', '4', '3', '5', ',', ' ', ...]
+        single_char_count = sum(1 for item in items if len(item) <= 1)
+        has_comma_item = any(item in {",", "，", ";", "；"} for item in items)
+        if (len(items) >= 4 and single_char_count / len(items) > 0.6) or has_comma_item:
+            joined = "".join(str(x) for x in raw)
+            return normalize_list(joined, default=default)
+
+        # Normal list: handle any internal commas or whitespace
+        result: list[str] = []
+        for item in items:
+            item_clean = item.replace("，", ",").replace("；", ",").replace(";", ",")
+            if "," in item_clean:
+                for sub in item_clean.split(","):
+                    sub = sub.strip()
+                    if sub:
+                        result.append(sub)
+            else:
+                result.append(item)
+        return tuple(result) if result else default
+
+    return default
+
+
+def normalize_list_for_json(raw: Any, default: list[str] | None = None) -> list[str]:
+    """Return a list[str] suitable for saving into json/self.config."""
+    res = normalize_list(raw, default=tuple(default or []))
+    return list(res)
+
+
+# Alias for backward compatibility
+_split_csv = normalize_list
 
 
 def _flatten_groups(raw: Mapping[str, Any]) -> dict[str, Any]:
