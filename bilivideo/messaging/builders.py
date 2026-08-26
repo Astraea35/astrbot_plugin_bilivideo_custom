@@ -28,7 +28,7 @@ def format_video_summary_lines(
     info: VideoInfo,
     *,
     config: PluginConfig,
-    desc_max: int = 100,
+    desc_max: int | None = None,
 ) -> list[str]:
     """Build the text lines for an auto-detect "card-like" announcement.
 
@@ -41,8 +41,9 @@ def format_video_summary_lines(
         lines.append(f"👤 UP主: {info.owner_name}")
     if config.detect_show_desc and info.desc:
         desc = info.desc
-        if len(desc) > desc_max:
-            desc = desc[:desc_max] + "..."
+        limit = getattr(config, "detect_desc_max_len", 0) if desc_max is None else desc_max
+        if limit > 0 and len(desc) > limit:
+            desc = desc[:limit] + "..."
         lines.append(f"📝 简介: {desc}")
     if config.detect_show_pubtime and info.pubdate:
         try:
@@ -57,13 +58,13 @@ def format_video_summary_lines(
     return lines
 
 
-def format_video_info_block(info: VideoInfo, *, desc_max: int = 150) -> str:
+def format_video_info_block(info: VideoInfo, *, desc_max: int = 0) -> str:
     """Compact info block used in forward-message nodes."""
 
     parts: list[str] = [f"👤 UP主: {info.owner_name}"]
     if info.desc:
         desc = info.desc
-        if len(desc) > desc_max:
+        if desc_max > 0 and len(desc) > desc_max:
             desc = desc[:desc_max] + "..."
         parts.append(f"📝 简介: {desc}")
     if info.pubdate:

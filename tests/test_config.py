@@ -147,3 +147,15 @@ def test_list_containing_unsplit_comma_string() -> None:
     )
     assert cfg.access_list == ("709532435", "746238535", "1080530485")
 
+
+def test_detect_desc_max_len_config() -> None:
+    cfg_default = PluginConfig.from_mapping({})
+    assert cfg_default.detect_desc_max_len == 0
+
+    cfg_custom = PluginConfig.from_mapping({"detect_desc_max_len": 300})
+    assert cfg_custom.detect_desc_max_len == 300
+
+    cfg_nested = PluginConfig.from_mapping({"detect": {"detect_desc_max_len": 500}})
+    assert cfg_nested.detect_desc_max_len == 500
+
+

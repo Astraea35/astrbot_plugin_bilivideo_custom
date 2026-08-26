@@ -129,6 +129,14 @@
       "detect_show_cover": { "type": "bool", "default": true, "description": "推送封面" },
       "detect_show_uploader": { "type": "bool", "default": true, "description": "推送 UP 主" },
       "detect_show_desc": { "type": "bool", "default": true, "description": "推送简介" },
+      "detect_desc_max_len": {
+        "type": "int",
+        "default": 0,
+        "min": 0,
+        "max": 5000,
+        "description": "简介最大字数",
+        "hint": "推送/识别视频简介的最大字数上限。设为 0 表示不限制（完整展示简介），大于 0 时超出部分会自动截断。"
+      },
       "detect_show_pubtime": { "type": "bool", "default": true, "description": "推送发布时间" },
       "detect_show_link": { "type": "bool", "default": true, "description": "推送链接" },
       "detect_show_stats": { "type": "bool", "default": true, "description": "推送播放数据" },

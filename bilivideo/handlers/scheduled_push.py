@@ -139,7 +139,11 @@ async def _build_chain(
     if not config.auto_push_summary or not sub.auto_summary or not auto_summary_allowed:
         lines = [push_header + f"📺 {latest.title}"]
         if latest.description:
-            desc = latest.description if len(latest.description) <= 100 else latest.description[:100] + "..."
+            desc_max = getattr(config, "detect_desc_max_len", 0)
+            if desc_max > 0 and len(latest.description) > desc_max:
+                desc = latest.description[:desc_max] + "..."
+            else:
+                desc = latest.description
             lines.append(f"📝 简介: {desc}")
         if latest.pubdate:
             with contextlib.suppress(ValueError, OSError):

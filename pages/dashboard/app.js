@@ -60,6 +60,7 @@ const fieldGroups = {
     { key: "detect_show_cover", label: "展示封面", type: "switch" },
     { key: "detect_show_uploader", label: "展示作者", type: "switch" },
     { key: "detect_show_desc", label: "展示简介", type: "switch" },
+    { key: "detect_desc_max_len", label: "简介截断最大字数", hint: "设为 0 表示不限制（完整展示）", type: "number", min: "0", max: "5000" },
     { key: "detect_show_pubtime", label: "展示发布时间", type: "switch" },
     { key: "detect_show_link", label: "展示原链接", type: "switch" },
     { key: "detect_show_stats", label: "展示互动数据", type: "switch" },

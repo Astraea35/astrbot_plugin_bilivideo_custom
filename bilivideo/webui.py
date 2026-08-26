@@ -47,7 +47,7 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
     "zhihu": ("zhihu_cookie", "zhihu_summary_provider", "zhihu_summary_model"),
     "render": ("output_image", "theme", "renderer_template", "custom_font_path", "image_scale_factor", "image_width", "image_output_format", "image_quality", "enable_auto_split", "max_cards_per_image", "image_font_size"),
     "message": ("enable_forward_message", "forward_bot_name", "forward_bot_uin"),
-    "detect": ("enable_miniapp_detect", "detect_show_cover", "detect_show_uploader", "detect_show_desc", "detect_show_pubtime", "detect_show_link", "detect_show_stats", "detect_auto_summary", "trigger_keywords"),
+    "detect": ("enable_miniapp_detect", "detect_show_cover", "detect_show_uploader", "detect_show_desc", "detect_desc_max_len", "detect_show_pubtime", "detect_show_link", "detect_show_stats", "detect_auto_summary", "trigger_keywords"),
     "subscription": ("enable_auto_push", "auto_push_summary", "check_interval_minutes", "max_subscriptions", "sub_list_render_method", "enable_dynamic_ai_summary", "dynamic_summary_provider", "dynamic_summary_model", "enable_multimodal_dynamic_summary", "plain_push_template", "plain_push_forward_template", "ai_summary_prompt"),
     "access": ("access_mode", "access_list", "manual_summary_mode", "manual_summary_list", "auto_summary_mode", "auto_summary_list"),
     "search": ("default_count", "default_download_count", "search_max_concurrent", "search_show_progress"),

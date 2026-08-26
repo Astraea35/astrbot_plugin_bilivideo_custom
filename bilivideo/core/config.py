@@ -204,6 +204,7 @@ class PluginConfig:
     detect_show_cover: bool = True
     detect_show_uploader: bool = True
     detect_show_desc: bool = True
+    detect_desc_max_len: int = 0
     detect_show_pubtime: bool = True
     detect_show_link: bool = True
     detect_show_stats: bool = True
@@ -337,6 +338,7 @@ class PluginConfig:
             detect_show_cover=_coerce_bool(flat.get("detect_show_cover"), True),
             detect_show_uploader=_coerce_bool(flat.get("detect_show_uploader"), True),
             detect_show_desc=_coerce_bool(flat.get("detect_show_desc"), True),
+            detect_desc_max_len=_coerce_int(flat.get("detect_desc_max_len"), 0, lo=0, hi=50000),
             detect_show_pubtime=_coerce_bool(flat.get("detect_show_pubtime"), True),
             detect_show_link=_coerce_bool(flat.get("detect_show_link"), True),
             detect_show_stats=_coerce_bool(flat.get("detect_show_stats"), True),
