@@ -121,6 +121,74 @@ async def test_ai_subtitle_discarded_if_timestamps_exceed_video_duration() -> No
 
 
 @pytest.mark.asyncio
+async def test_ai_subtitle_discarded_if_coverage_is_too_short() -> None:
+    """Simulates the 120s video receiving a 50s fake subtitle (the chicken soup bug)."""
+    class _ShortCoverageHTTP:
+        def __init__(self) -> None:
+            self.cookies = {"SESSDATA": "token"}
+
+        async def request_json(self, method: str, url: str, *, params=None):
+            if url == ENDPOINT_VIEW:
+                return {"code": 0, "data": {"cid": 42, "duration": 120}}  # 120s video
+            if url == ENDPOINT_PLAYER_V2:
+                return {
+                    "code": 0,
+                    "data": {
+                        "subtitle": {
+                            "subtitles": [
+                                {"lan": "ai-zh", "subtitle_url": "https://aisubtitle.hdslb.com/short.json"},
+                            ]
+                        }
+                    },
+                }
+            if url == "https://aisubtitle.hdslb.com/short.json":
+                return {
+                    "body": [
+                        {"from": i * 1.2, "to": (i + 1) * 1.2, "content": f"鸡汤内容片段 {i}"}
+                        for i in range(40)  # ends at 48.0s
+                    ]
+                }
+            raise AssertionError(f"unexpected request: {url}")
+
+    client = _ShortCoverageHTTP()
+    result = await get_bilibili_ai_subtitle(client, "https://www.bilibili.com/video/BV1xx411c7mD")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_ai_subtitle_discarded_if_starts_too_late() -> None:
+    class _LateStartHTTP:
+        def __init__(self) -> None:
+            self.cookies = {"SESSDATA": "token"}
+
+        async def request_json(self, method: str, url: str, *, params=None):
+            if url == ENDPOINT_VIEW:
+                return {"code": 0, "data": {"cid": 42, "duration": 100}}
+            if url == ENDPOINT_PLAYER_V2:
+                return {
+                    "code": 0,
+                    "data": {
+                        "subtitle": {
+                            "subtitles": [
+                                {"lan": "ai-zh", "subtitle_url": "https://aisubtitle.hdslb.com/latestart.json"},
+                            ]
+                        }
+                    },
+                }
+            if url == "https://aisubtitle.hdslb.com/latestart.json":
+                return {
+                    "body": [
+                        {"from": 50, "to": 90, "content": "很晚才开始的字幕内容"},
+                    ]
+                }
+            raise AssertionError(f"unexpected request: {url}")
+
+    client = _LateStartHTTP()
+    result = await get_bilibili_ai_subtitle(client, "https://www.bilibili.com/video/BV1xx411c7mD")
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_pipeline_uses_ai_subtitle_before_audio_asr(monkeypatch) -> None:
     expected = TranscriptResult(
         language="ai-zh",

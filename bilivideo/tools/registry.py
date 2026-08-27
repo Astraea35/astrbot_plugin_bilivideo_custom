@@ -286,6 +286,22 @@ async def _safe_send_text(astrbot_context: object, umo: str, text: str) -> None:
         logger.warning(f"message dispatch failed: {exc}")
 
 
+def build_combined_summary_prompt(successful: list) -> str:
+    transcript_text = "\n\n".join(
+        f"【视频 {i + 1}】{v.info.title if v.info else v.bvid}\n{v.transcript}"
+        for i, v in enumerate(successful)
+    )
+    return (
+        "请为以下B站视频内容生成一份详细的结构化总结。\n\n"
+        "要求:\n"
+        "1. 使用 Markdown 格式\n"
+        "2. 包含:核心观点、关键要点、时间线(如有)、总结\n"
+        "3. 语言简洁清晰，突出重点\n"
+        "4. 如果是多个视频，分别总结并加上视频标题\n\n"
+        f"{transcript_text}"
+    )
+
+
 async def _send_combined_summary(
     *,
     services: BiliVideoServices,
@@ -296,20 +312,7 @@ async def _send_combined_summary(
     """发送综合总结（合并转发模式）"""
     from ..handlers._render_helper import render_note_components
 
-    # 构建提示词
-    transcript_text = "\n\n".join(
-        f"【视频 {i + 1}】{v.info.title if v.info else v.bvid}\n{v.transcript}"
-        for i, v in enumerate(successful)
-    )
-    summary_prompt = (
-        "请为以下B站视频内容生成一份详细的结构化总结。\n\n"
-        "要求:\n"
-        "1. 使用 Markdown 格式\n"
-        "2. 包含:核心观点、关键要点、时间线(如有)、总结\n"
-        "3. 语言简洁清晰，突出重点\n"
-        "4. 如果是多个视频，分别总结并加上视频标题\n\n"
-        f"{transcript_text}"
-    )
+    summary_prompt = build_combined_summary_prompt(successful)
 
     note_text = await services.llm.chat(summary_prompt, session_id="BiliVideo_search")
     rendered = await render_note_components(services, note_text)

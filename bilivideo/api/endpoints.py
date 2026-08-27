@@ -222,20 +222,35 @@ async def get_bilibili_ai_subtitle(
                 start = end = 0.0
             segments.append(TranscriptSegment(start=start, end=max(start, end), text=text))
         if segments:
+            first_start = segments[0].start
             last_end = max(segment.end for segment in segments)
+            total_spoken = sum(max(0.0, segment.end - segment.start) for segment in segments)
             if video_duration > 0:
-                if last_end > video_duration * 1.25 + 30:
+                if last_end > video_duration * 1.15 + 15:
                     logger.warning(
                         f"Bilibili AI subtitle discarded for {bvid}: subtitle timestamp ({last_end:.1f}s) "
                         f"far exceeds video duration ({video_duration:.1f}s), possible stale/polluted data"
                     )
                     continue
-                if video_duration > 60 and last_end < video_duration * 0.3 and len(segments) < 20:
-                    logger.warning(
-                        f"Bilibili AI subtitle discarded for {bvid}: incomplete subtitle coverage "
-                        f"({last_end:.1f}s / {video_duration:.1f}s)"
-                    )
-                    continue
+                if video_duration >= 20:
+                    if last_end < max(15.0, video_duration * 0.65):
+                        logger.warning(
+                            f"Bilibili AI subtitle discarded for {bvid}: incomplete subtitle coverage "
+                            f"({last_end:.1f}s / {video_duration:.1f}s)"
+                        )
+                        continue
+                    if first_start > max(30.0, video_duration * 0.35):
+                        logger.warning(
+                            f"Bilibili AI subtitle discarded for {bvid}: subtitle starts too late "
+                            f"({first_start:.1f}s / {video_duration:.1f}s)"
+                        )
+                        continue
+                    if video_duration >= 30 and total_spoken < video_duration * 0.15:
+                        logger.warning(
+                            f"Bilibili AI subtitle discarded for {bvid}: speech density too sparse "
+                            f"({total_spoken:.1f}s spoken in {video_duration:.1f}s video)"
+                        )
+                        continue
             language = str(entry.get("lan") or "ai-zh")
             logger.info(f"Bilibili AI subtitle hit for {bvid} ({language}, {len(segments)} segments)")
             return TranscriptResult(
