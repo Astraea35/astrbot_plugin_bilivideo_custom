@@ -7,20 +7,47 @@ useful when the API is unavailable.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import html
 import json
 import re
+import time
+import uuid
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
-import aiohttp
+try:
+    import aiohttp
+except ImportError:  # pragma: no cover
+    aiohttp = None  # type: ignore[assignment]
 
 
 COOLAPK_API = "https://api.coolapk.com/v6/feed/detail"
 COOLAPK_HOSTS = ("coolapk.com", "www.coolapk.com", "m.coolapk.com")
 COOLAPK_URL_RE = re.compile(r"https?://(?:www\.|m\.)?coolapk\.com/feed/(\d+)", re.I)
 _IMAGE_RE = re.compile(r"https?://[^\"'<>\s]+\.(?:jpe?g|png|gif|webp)(?:\?[^\"'<>\s]*)?", re.I)
+_INVALID_CONTENT_PATTERNS = (
+    "请求未验证",
+    "token expired",
+    "need login",
+    "您当前查看的是「动态分享」",
+    "请用酷安手机APP扫码查看详情",
+    "在酷安App内打开",
+)
+
+
+def generate_coolapk_token(device_id: str | None = None) -> str:
+    """Generate dynamic X-App-Token for Coolapk API authentication."""
+    dev_id = device_id or str(uuid.uuid4())
+    t = int(time.time())
+    hex_t = hex(t)
+    md5_t = hashlib.md5(str(t).encode("utf-8")).hexdigest()
+    raw = f"token://com.coolapk.market/c67ef59437ac340d694c483a936a2829?{md5_t}${dev_id}&com.coolapk.market"
+    b64_raw = base64.b64encode(raw.encode("utf-8")).decode("utf-8")
+    md5_raw = hashlib.md5(b64_raw.encode("utf-8")).hexdigest()
+    return f"{md5_raw}{dev_id}{hex_t}"
 
 
 @dataclass(slots=True, frozen=True)
@@ -32,6 +59,9 @@ class CoolapkPost:
     content: str = ""
     images: tuple[str, ...] = field(default_factory=tuple)
     created_at: str = ""
+    likes: str = "0"
+    comments: str = "0"
+    shares: str = "0"
     raw: dict = field(default_factory=dict)
 
     @property
@@ -39,6 +69,8 @@ class CoolapkPost:
         lines = [f"# {self.title or '酷安动态'}", "", f"**作者：** {self.author or '未知'}"]
         if self.created_at:
             lines.append(f"**发布时间：** {self.created_at}")
+        if self.likes or self.comments:
+            lines.append(f"**互动数据：** 👍 {self.likes} · 💬 {self.comments}")
         lines.extend([f"**原链接：** {self.url}", "", "## 原文内容", self.content or "（无文字内容）"])
         if self.images:
             lines.extend(["", "## 原图"])
@@ -109,12 +141,19 @@ def _find_images(value: object) -> list[str]:
 
 
 def _pick_feed(payload: object, feed_id: str) -> dict:
+    if isinstance(payload, dict):
+        # If the response root is an error response, ignore it
+        if payload.get("status") not in (None, 0, 1, 200) and "data" not in payload:
+            return {}
+        if isinstance(payload.get("data"), dict):
+            return payload["data"]
+
     candidates = list(_walk_dicts(payload))
     for obj in candidates:
         if str(obj.get("entityId", obj.get("id", ""))) == feed_id and any(k in obj for k in ("message", "message_title", "title")):
             return obj
     for obj in candidates:
-        if "message" in obj or "message_title" in obj:
+        if ("message" in obj or "message_title" in obj) and obj.get("message") not in _INVALID_CONTENT_PATTERNS:
             return obj
     return payload if isinstance(payload, dict) else {}
 
@@ -124,13 +163,17 @@ async def fetch_coolapk_post(url: str, *, timeout: float = 15.0) -> CoolapkPost:
     if not feed_id:
         raise ValueError("无效的酷安动态链接")
     canonical_url = f"https://www.coolapk.com/feed/{feed_id}"
+    device_id = str(uuid.uuid4())
     headers = {
-        "User-Agent": "Dalvik/2.1.0 (Linux; Android 10; Pixel 4) +CoolMarket/7.3",
+        "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 12; Pixel 4 Build/SP1A.210812.016) (#Build; Google; Pixel 4; SP1A.210812.016; 12) +CoolMarket/14.5.1",
         "X-Requested-With": "XMLHttpRequest",
+        "X-Sdk-Int": "31",
         "X-Sdk-Locale": "zh-CN",
-        "X-App-Id": "coolmarket",
-        "X-App-Version": "7.3",
-        "X-Api-Version": "7",
+        "X-App-Id": "com.coolapk.market",
+        "X-App-Token": generate_coolapk_token(device_id),
+        "X-App-Version": "14.5.1",
+        "X-App-Code": "2411200",
+        "X-Api-Version": "14",
         "Referer": canonical_url,
     }
     payload: object = {}
@@ -141,28 +184,58 @@ async def fetch_coolapk_post(url: str, *, timeout: float = 15.0) -> CoolapkPost:
                     payload = await response.json(content_type=None)
         except (aiohttp.ClientError, OSError, json.JSONDecodeError):
             payload = {}
-        if not payload:
+        if not payload or (isinstance(payload, dict) and payload.get("status") not in (None, 0, 1, 200) and "data" not in payload):
+            web_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Referer": "https://www.coolapk.com/",
+            }
             try:
-                async with session.get(canonical_url) as response:
+                async with session.get(canonical_url, headers=web_headers) as response:
                     page = await response.text(errors="ignore")
+                    title_m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', page, re.I | re.S)
+                    desc_m = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']', page, re.I | re.S)
                     payload = {
-                        "title": re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', page, re.I | re.S).group(1)
-                        if re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', page, re.I | re.S) else "",
-                        "message": re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']', page, re.I | re.S).group(1)
-                        if re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']', page, re.I | re.S) else "",
+                        "title": title_m.group(1) if title_m else "",
+                        "message": desc_m.group(1) if desc_m else "",
                         "images": _IMAGE_RE.findall(page),
                     }
             except (aiohttp.ClientError, OSError):
                 payload = {}
     item = _pick_feed(payload, feed_id)
+    raw_message = item.get("message") or item.get("message_brief") or item.get("description") or item.get("content") or ""
+    content = _clean_html(raw_message)
+
+    # Filter out anti-crawler and API auth failure strings
+    if any(pat in content for pat in _INVALID_CONTENT_PATTERNS):
+        content = ""
+
     title = str(item.get("title") or item.get("message_title") or "酷安动态").strip()
-    author = str(item.get("username") or item.get("userName") or item.get("user_name") or item.get("author") or "未知").strip()
-    content = _clean_html(item.get("message") or item.get("message_brief") or item.get("description") or item.get("content"))
+    author = str(item.get("username") or item.get("userName") or item.get("user_name") or item.get("author") or "").strip()
     images = tuple(_find_images(item) or _find_images(payload))
     created = str(item.get("dateline") or item.get("create_time") or item.get("created_at") or "").strip()
+    likes = str(item.get("likenum") or item.get("like_num") or item.get("likes") or "0").strip()
+    comments = str(item.get("replynum") or item.get("commentnum") or item.get("comments") or "0").strip()
+    shares = str(item.get("sharenum") or item.get("shares") or "0").strip()
+
     if not content and not images:
-        raise RuntimeError("酷安动态内容获取失败，可能需要稍后重试")
-    return CoolapkPost(feed_id, canonical_url, title, author, content, images, created, item)
+        raise RuntimeError("酷安动态内容获取失败（接口鉴权未通过或受官方反爬保护），请稍后重试")
+
+    if not author:
+        author = "酷安用户"
+
+    return CoolapkPost(
+        feed_id=feed_id,
+        url=canonical_url,
+        title=title,
+        author=author,
+        content=content,
+        images=images,
+        created_at=created,
+        likes=likes,
+        comments=comments,
+        shares=shares,
+        raw=item,
+    )
 
 
 def build_coolapk_prompt(post: CoolapkPost, style: str = "professional") -> str:

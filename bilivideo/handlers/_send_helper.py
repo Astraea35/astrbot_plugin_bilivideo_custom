@@ -9,8 +9,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from ..core.types import VideoInfo
-from ..messaging.forward import build_video_forward_nodes
+from ..messaging.forward import build_forward_nodes
 from ..services import BiliVideoServices
 
 
@@ -30,14 +29,16 @@ async def yield_note_response(
     event: object,
     rendered: list[Any] | str,
     *,
-    video_info: VideoInfo | None,
+    video_info: Any | None = None,
+    meta: Any | None = None,
 ) -> AsyncIterator[Any]:
-    """Yield either a single forward-message or the rendered components."""
+    """Yield either a single forward-message or the rendered components for any platform."""
+    item = meta if meta is not None else video_info
 
-    if services.config.enable_forward_message and video_info is not None:
+    if services.config.enable_forward_message and item is not None:
         try:
-            forward = build_video_forward_nodes(
-                video_info,
+            forward = build_forward_nodes(
+                item,
                 rendered,
                 bot_name=services.config.forward_bot_name,
                 bot_uin=services.config.forward_bot_uin,

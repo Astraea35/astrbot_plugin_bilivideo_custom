@@ -116,31 +116,31 @@
     "description": "💬 消息推送格式",
     "type": "object",
     "items": {
-      "enable_forward_message": { "type": "bool", "default": false, "description": "合并转发模式", "hint": "将视频信息+总结打包为聊天记录形式" },
-      "forward_bot_name": { "type": "string", "default": "BiliVideo 助手", "description": "合并转发显示名" },
-      "forward_bot_uin": { "type": "string", "default": "0", "description": "合并转发显示 QQ" }
+      "enable_forward_message": { "type": "bool", "default": false, "description": "合并转发模式", "hint": "开启后，所有平台（B站、YouTube、抖音、酷安、知乎）的总结均统一打包为聊天记录合并转发节点" },
+      "forward_bot_name": { "type": "string", "default": "BiliVideo 助手", "description": "合并转发显示名", "hint": "合并转发节点外显的机器人名称（所有平台通用）" },
+      "forward_bot_uin": { "type": "string", "default": "0", "description": "合并转发显示 QQ", "hint": "合并转发节点外显的 QQ 号/账号标识（所有平台通用）" }
     }
   },
   "detect": {
     "description": "🔍 自动识别",
     "type": "object",
     "items": {
-      "enable_miniapp_detect": { "type": "bool", "default": false, "description": "启用自动识别", "hint": "可用 /识别开关 命令实时切换。识别群内分享 of B 站小程序/链接/短链" },
-      "detect_show_cover": { "type": "bool", "default": true, "description": "推送封面" },
-      "detect_show_uploader": { "type": "bool", "default": true, "description": "推送 UP 主" },
-      "detect_show_desc": { "type": "bool", "default": true, "description": "推送简介" },
+      "enable_miniapp_detect": { "type": "bool", "default": false, "description": "启用自动识别", "hint": "可用 /识别开关 命令实时切换。支持 B站、YouTube、抖音、酷安、知乎链接及小程序的自动检测" },
+      "detect_show_cover": { "type": "bool", "default": true, "description": "展示封面/首图", "hint": "在识别卡片与合并转发中包含封面或配图（全平台通用）" },
+      "detect_show_uploader": { "type": "bool", "default": true, "description": "展示作者/UP主", "hint": "在识别卡片与合并转发中显示创作者/UP主/作者名称（全平台通用）" },
+      "detect_show_desc": { "type": "bool", "default": true, "description": "展示文案/正文简介", "hint": "在识别卡片与合并转发中显示文案或正文简介（全平台通用）" },
       "detect_desc_max_len": {
         "type": "int",
         "default": 0,
         "min": 0,
         "max": 5000,
         "description": "简介最大字数",
-        "hint": "推送/识别视频简介的最大字数上限。设为 0 表示不限制（完整展示简介），大于 0 时超出部分会自动截断。"
+        "hint": "推送/识别简介的最大字数上限。设为 0 表示不限制（完整展示），大于 0 时超出部分会自动截断。"
       },
-      "detect_show_pubtime": { "type": "bool", "default": true, "description": "推送发布时间" },
-      "detect_show_link": { "type": "bool", "default": true, "description": "推送链接" },
-      "detect_show_stats": { "type": "bool", "default": true, "description": "推送播放数据" },
-      "detect_auto_summary": { "type": "bool", "default": false, "description": "自动总结", "hint": "开启会消耗 LLM 额度" },
+      "detect_show_pubtime": { "type": "bool", "default": true, "description": "展示发布时间", "hint": "在识别卡片与合并转发中展示发布或识别时间" },
+      "detect_show_link": { "type": "bool", "default": true, "description": "展示直达链接", "hint": "在识别卡片与合并转发中展示原网页或直达链接" },
+      "detect_show_stats": { "type": "bool", "default": true, "description": "展示互动数据", "hint": "在识别卡片与合并转发中展示播放量、点赞、评论、赞同等互动统计" },
+      "detect_auto_summary": { "type": "bool", "default": false, "description": "识别后自动总结", "hint": "识别到各平台链接后，是否自动触发 AI 总结（消耗 LLM 额度，受自动总结权限范围管控）" },
       "trigger_keywords": {
         "type": "list",
         "default": [

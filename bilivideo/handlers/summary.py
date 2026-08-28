@@ -68,7 +68,7 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
             yield event.plain_result(f"❌ 酷安内容获取失败: {exc}")
             return
         components = await render_note_components(services, note.markdown, force_image=True)
-        async for resp in yield_note_response(services, event, components, video_info=None):
+        async for resp in yield_note_response(services, event, components, meta=post):
             yield resp
         return
 
@@ -93,7 +93,7 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
             yield event.plain_result(f"❌ 知乎内容获取失败: {exc}")
             return
         components = await render_note_components(services, note.markdown, force_image=True)
-        async for resp in yield_note_response(services, event, components, video_info=None):
+        async for resp in yield_note_response(services, event, components, meta=post):
             yield resp
         return
 

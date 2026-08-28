@@ -41,12 +41,12 @@ async def test_forward_value_error_still_yields_components(monkeypatch) -> None:
     def _boom(*_a, **_k):
         raise ValueError("node 构造失败")  # NOT a RuntimeError
 
-    monkeypatch.setattr(_send_helper, "build_video_forward_nodes", _boom)
+    monkeypatch.setattr(_send_helper, "build_forward_nodes", _boom)
 
     event = _Event()
     out = []
     async for resp in _send_helper.yield_note_response(
-        _Services(), event, ["IMG_A", "IMG_B"], video_info=object()
+        _Services(), event, ["IMG_A", "IMG_B"], meta=object()
     ):
         out.append(resp)
 
@@ -60,12 +60,12 @@ async def test_text_fallback_when_forward_fails(monkeypatch) -> None:
     def _boom(*_a, **_k):
         raise TypeError("Node signature drift")
 
-    monkeypatch.setattr(_send_helper, "build_video_forward_nodes", _boom)
+    monkeypatch.setattr(_send_helper, "build_forward_nodes", _boom)
 
     event = _Event()
     out = []
     async for resp in _send_helper.yield_note_response(
-        _Services(), event, "纯文本兜底", video_info=object()
+        _Services(), event, "纯文本兜底", meta=object()
     ):
         out.append(resp)
 

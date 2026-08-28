@@ -44,6 +44,7 @@ except Exception:
 BILI_RE = re.compile(r'(b23\.tv/[A-Za-z0-9]+|bilibili\.com/video/[A-Za-z0-9]+)')
 DY_SHORT_RE = re.compile(r'(v\.douyin\.com/[A-Za-z0-9]+)')
 DY_LONG_RE = re.compile(r'douyin\.com/video/(\d+)')
+YT_RE = re.compile(r'https?://(?:www\.|m\.)?(?:youtube\.com/watch\?v=[A-Za-z0-9_-]+|youtu\.be/[A-Za-z0-9_-]+|youtube\.com/shorts/[A-Za-z0-9_-]+)', re.I)
 
 
 def _extract_bili_url_from_raw(raw) -> str:
@@ -320,6 +321,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         TriggerSet.has_bilibili_hint(link_scan_text)
         or extract_coolapk_url(link_scan_text)
         or extract_zhihu_url(link_scan_text)
+        or (YT_RE.search(link_scan_text) is not None)
     ):
         return
 
@@ -339,20 +341,48 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         except Exception as exc:
             services.logger.warning(f"酷安动态获取失败: {exc}")
             return
-        yield event.plain_result(f"📝 酷安动态：{post.title or post.content[:40]}")
-        try:
-            if services.config.detect_auto_summary:
-                if not _check_auto_summary_access(services, event):
-                    return
+
+        # 1. 组装并发送自动识别卡片
+        response_lines = ["📱 biliVideo 自动识别 · 酷安动态"]
+        response_lines.append("━━━━━━━━━━━━━━━━━━━")
+        if getattr(services.config, "detect_show_uploader", True) and post.author:
+            response_lines.append(f"👤 作者: {post.author}")
+        if getattr(services.config, "detect_show_pubtime", True) and post.created_at:
+            response_lines.append(f"📅 发布时间: {post.created_at}")
+        if getattr(services.config, "detect_show_stats", True) and (post.likes != "0" or post.comments != "0"):
+            response_lines.append(f"📊 互动数据:  👍 {post.likes}  |  💬 {post.comments}")
+        if getattr(services.config, "detect_show_desc", True) and post.content:
+            desc_max = getattr(services.config, "detect_desc_max_len", 0)
+            desc_text = post.content if desc_max <= 0 else post.content[:desc_max]
+            response_lines.append(f"📝 动态正文: {desc_text}")
+        if getattr(services.config, "detect_show_link", True) and post.url:
+            response_lines.append(f"🔗 网页直达: {post.url}")
+
+        chain = []
+        if getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
+            try:
+                chain.append(Image.fromURL(post.images[0]))
+            except Exception:
+                pass
+        if Plain is not None:
+            chain.append(Plain("\n".join(response_lines)))
+        if chain:
+            yield event.chain_result(chain)
+
+        # 2. 自动总结逻辑
+        if services.config.detect_auto_summary:
+            if not _check_auto_summary_access(services, event):
+                return
+            yield event.plain_result("⏳ 正在生成酷安动态总结...")
+            try:
                 note = await services.inflight.run("coolapk:" + post.feed_id, lambda: services.orchestrator.generate_coolapk(post))
                 markdown = note.markdown
-            else:
-                markdown = post.render_markdown
+            except Exception as exc:
+                yield event.plain_result(getattr(exc, "user_message", str(exc)))
+                return
             components = await render_note_components(services, markdown, force_image=True)
-            async for resp in yield_note_response(services, event, components, video_info=None):
+            async for resp in yield_note_response(services, event, components, meta=post):
                 yield resp
-        except Exception as exc:
-            yield event.plain_result(f"❌ 酷安内容处理失败: {exc}")
         return
 
     # ==================== 🛠️ 抖音多开关高融合全面适配识别 ====================
@@ -409,81 +439,21 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         if chain:
             yield event.chain_result(chain)
 
-        # ---------- 2. 核心新增逻辑：检查是否要“自动总结”并执行 ----------
-        # 只有开启“自动总结”配置，且通过权限校验（白名单/黑名单/仅私聊）才执行
+        # ---------- 2. 核心总结逻辑：适配合并转发与权限校验 ----------
         if services.config.detect_auto_summary:
             if not _check_auto_summary_access(services, event):
                 return
             
             yield event.plain_result("⏳ 正在生成抖音视频总结（此过程可能需要 1-3 分钟）...")
             try:
-                # 调用核心总结编排器（支持抖音）
                 note = await services.orchestrator.generate(data['link'])
             except Exception as exc:
                 yield event.plain_result(getattr(exc, 'user_message', str(exc)))
                 return
 
-            # 渲染总结为图片或纯文本
             components = await render_note_components(services, note.markdown, video_info=note.video_info)
-
-            # ---------- 3. 适配合并转发（与B站完全一致的打包效果） ----------
-            if services.config.enable_forward_message:
-                try:
-                    from astrbot.api.message_components import Node, Nodes, Plain as MPlain, Image as MImage
-                    nodes = []
-                    
-                    # 节点 1：封面 + 标题
-                    node1_content = []
-                    if local_img_exists and MImage is not None:
-                        node1_content.append(MImage.fromFileSystem(str(local_img_path)))
-                    node1_content.append(MPlain(f"🎵 {data['desc']}"))
-                    nodes.append(Node(
-                        content=node1_content,
-                        name=services.config.forward_bot_name,
-                        uin=services.config.forward_bot_uin
-                    ))
-
-                    # 节点 2：创作者及互动数据面板
-                    meta_lines = [
-                        f"👤 创作者: {data['author']}",
-                        f"📊 互动: ❤️ {data['likes']} | 💬 {data['comments']} | ⭐ {data['collects']} | 🔗 {data['shares']}",
-                        f"🔗 {data['link']}"
-                    ]
-                    nodes.append(Node(
-                        content=[MPlain("\n".join(meta_lines))],
-                        name=services.config.forward_bot_name,
-                        uin=services.config.forward_bot_uin
-                    ))
-
-                    # 节点 3...N：AI 总结（支持多图/分页）
-                    if isinstance(components, list):
-                        for idx, comp in enumerate(components):
-                            label = "📝 AI 视频总结" if idx == 0 else f"📝 AI 视频总结 (第 {idx+1} 页)"
-                            nodes.append(Node(
-                                content=[MPlain(label), comp],
-                                name=services.config.forward_bot_name,
-                                uin=services.config.forward_bot_uin
-                            ))
-                    else:
-                        nodes.append(Node(
-                            content=[MPlain(f"📝 AI 视频总结\n\n{components}")],
-                            name=services.config.forward_bot_name,
-                            uin=services.config.forward_bot_uin
-                        ))
-
-                    yield event.chain_result([Nodes(nodes=nodes)])
-                    return
-                except Exception as forward_err:
-                    services.logger.warning(f"抖音合并转发打包失败，自动降级为逐条发送: {forward_err}")
-
-            # 如果未开启合并转发，或合并转发失败，则逐条发送总结组件
-            if isinstance(components, list):
-                for comp in components:
-                    yield event.chain_result([comp])
-            else:
-                yield event.plain_result(components)
-        
-        # 如果未开启自动总结，发完卡片直接结束（保持原样）
+            async for resp in yield_note_response(services, event, components, meta=data):
+                yield resp
         return
 
     # ==================== 知乎回答 / 专栏 / 问题识别 ====================
@@ -499,24 +469,67 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         content_label = {"answer": "回答", "article": "专栏", "question": "问题"}.get(
             post.content_type, "内容"
         )
-        yield event.plain_result(f"📚 知乎{content_label}：{post.title or post.content[:40]}")
-        try:
-            if services.config.detect_auto_summary:
-                if not _check_auto_summary_access(services, event):
-                    return
+        response_lines = [f"📚 biliVideo 自动识别 · 知乎{content_label}"]
+        response_lines.append("━━━━━━━━━━━━━━━━━━━")
+        if getattr(services.config, "detect_show_uploader", True) and post.author:
+            response_lines.append(f"👤 作者: {post.author}")
+        if getattr(services.config, "detect_show_stats", True) and (post.voteup_count or post.comment_count):
+            response_lines.append(f"📊 互动数据:  👍 赞同 {post.voteup_count}  |  💬 评论 {post.comment_count}")
+        if getattr(services.config, "detect_show_desc", True) and post.content:
+            desc_max = getattr(services.config, "detect_desc_max_len", 0)
+            desc_text = post.content if desc_max <= 0 else post.content[:desc_max]
+            response_lines.append(f"📝 正文简介: {desc_text}")
+        if getattr(services.config, "detect_show_link", True) and post.source_url:
+            response_lines.append(f"🔗 网页直达: {post.source_url}")
+
+        chain = []
+        if getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
+            try:
+                chain.append(Image.fromURL(post.images[0]))
+            except Exception:
+                pass
+        if Plain is not None:
+            chain.append(Plain("\n".join(response_lines)))
+        if chain:
+            yield event.chain_result(chain)
+
+        if services.config.detect_auto_summary:
+            if not _check_auto_summary_access(services, event):
+                return
+            yield event.plain_result(f"⏳ 正在生成知乎{content_label}总结...")
+            try:
                 note = await services.inflight.run(
                     "zhihu:" + post.content_type + ":" + post.content_id,
                     lambda: services.orchestrator.generate_zhihu(post),
                 )
                 markdown = note.markdown
-            else:
-                markdown = post.render_markdown
+            except Exception as exc:
+                yield event.plain_result(getattr(exc, "user_message", str(exc)))
+                return
             components = await render_note_components(services, markdown, force_image=True)
-            async for resp in yield_note_response(services, event, components, video_info=None):
+            async for resp in yield_note_response(services, event, components, meta=post):
                 yield resp
-        except Exception as exc:
-            yield event.plain_result(f"❌ 知乎内容处理失败: {exc}")
         return
+
+    # ==================== 🎥 YouTube 视频识别 ====================
+    yt_match = YT_RE.search(coolapk_scan_text)
+    if yt_match:
+        if not services.config.is_platform_enabled("youtube"):
+            return
+        yt_url = yt_match.group(0)
+        if services.config.detect_auto_summary:
+            if not _check_auto_summary_access(services, event):
+                return
+            yield event.plain_result("⏳ 正在获取 YouTube 视频并生成总结...")
+            try:
+                note = await services.inflight.run(yt_url, lambda: services.orchestrator.generate(yt_url))
+            except Exception as exc:
+                yield event.plain_result(getattr(exc, "user_message", str(exc)))
+                return
+            components = await render_note_components(services, note.markdown, video_info=note.video_info)
+            async for resp in yield_note_response(services, event, components, meta=note.video_info):
+                yield resp
+            return
 
     # ==================== 📺 哔哩哔哩原厂完整逻辑（100% 恢复） ====================
     triggers = TriggerSet(services.config.trigger_keywords)
