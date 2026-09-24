@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from bilivideo.core.config import PluginConfig
-from bilivideo.core.exceptions import LLMError
+from bilivideo.core.exceptions import BiliVideoError, LLMError
 from bilivideo.core.types import (
     AudioDownloadResult,
     TranscriptResult,
@@ -16,6 +16,10 @@ from bilivideo.core.types import (
     VideoInfo,
 )
 from bilivideo.summarize.orchestrator import SummaryOrchestrator
+from bilivideo.summarize.relevance import (
+    summary_conflicts_with_transcript,
+    title_conflicts_with_text,
+)
 from bilivideo.transcription.pipeline import PipelineOutput
 
 # ──────────────────────── stubs ────────────────────────
@@ -62,6 +66,98 @@ class _StubPipeline:
 
     def cleanup_audio(self, audio: Any) -> None:
         self.cleanup_calls.append(audio)
+
+
+_GAME_TITLE = "7.1周年庆限定五星自选+常驻五星自选推荐"
+_FOOD_TEXT = "贵州美食锅巴糍粑蛋包洋芋折耳根和豆豉火锅令人回味。" * 12
+_GAME_TEXT = "周年庆限定五星自选推荐，常驻五星自选角色分析和抽取建议。" * 12
+_FOOD_NOTE = "# 7.1周年庆限定五星自选+常驻五星自选推荐 - 美食博主\n\n" + _FOOD_TEXT
+_GAME_NOTE = "# 7.1周年庆限定五星自选+常驻五星自选推荐 - 一诚xy\n\n" + _GAME_TEXT
+
+
+def _transcript(text: str) -> TranscriptResult:
+    return TranscriptResult(
+        language="ai-zh",
+        full_text=text,
+        segments=(TranscriptSegment(start=0, end=30, text=text),),
+    )
+
+
+def test_relevance_guard_catches_unrelated_food_summary() -> None:
+    assert title_conflicts_with_text(_GAME_TITLE, _FOOD_TEXT)
+    assert not title_conflicts_with_text(_GAME_TITLE, _GAME_TEXT)
+    assert summary_conflicts_with_transcript(_GAME_TEXT, _FOOD_NOTE)
+    assert not summary_conflicts_with_transcript(_GAME_TEXT, _GAME_NOTE)
+    assert not title_conflicts_with_text("今天真开心", _FOOD_TEXT)
+
+
+@pytest.mark.asyncio
+async def test_unrelated_subtitle_falls_back_to_audio_asr(monkeypatch) -> None:
+    info = VideoInfo(bvid="BV1xx411c7mD", title=_GAME_TITLE, owner_name="一诚xy")
+    _patch_get_video_info(monkeypatch, info)
+    audio = AudioDownloadResult(
+        file_path="/tmp/game.mp3", title=_GAME_TITLE, duration=30,
+        cover_url=None, platform="bilibili", video_id=info.bvid,
+    )
+
+    class _RetryPipeline(_StubPipeline):
+        async def fetch(self, video_url: str, **kwargs: Any) -> PipelineOutput:
+            self.fetch_calls += 1
+            if kwargs.get("force_asr"):
+                return PipelineOutput(_transcript(_GAME_TEXT), audio)
+            return PipelineOutput(_transcript(_FOOD_TEXT), None)
+
+    pipeline = _RetryPipeline(PipelineOutput(_transcript(_FOOD_TEXT), None))
+    llm = _StubLLM(_GAME_NOTE)
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm,
+        pipeline=pipeline, http_client=_StubHTTP(),  # type: ignore[arg-type]
+    )
+    result = await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
+
+    assert result.used_subtitle is False
+    assert pipeline.fetch_calls == 2
+    assert len(llm.calls) == 1
+    assert _GAME_TEXT in llm.calls[0]
+    assert pipeline.cleanup_calls == [audio]
+
+
+@pytest.mark.asyncio
+async def test_unrelated_llm_answer_is_not_cached(monkeypatch) -> None:
+    info = VideoInfo(bvid="BV1xx411c7mD", title=_GAME_TITLE, owner_name="一诚xy")
+    _patch_get_video_info(monkeypatch, info)
+    pipeline = _StubPipeline(PipelineOutput(_transcript(_GAME_TEXT), None))
+    llm = _StubLLM(_FOOD_NOTE)
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm,
+        pipeline=pipeline, http_client=_StubHTTP(),  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(BiliVideoError, match="summary does not match"):
+        await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
+    assert len(llm.calls) == 2
+    assert pipeline.fetch_calls == 2
+    assert await orch._cache.get(info.bvid) is None
+
+
+@pytest.mark.asyncio
+async def test_off_topic_persistent_cache_is_discarded(monkeypatch, tmp_path) -> None:
+    info = VideoInfo(bvid="BV1xx411c7mD", title=_GAME_TITLE, owner_name="一诚xy")
+    _patch_get_video_info(monkeypatch, info)
+    pipeline = _StubPipeline(PipelineOutput(_transcript(_GAME_TEXT), None))
+    llm = _StubLLM(_GAME_NOTE)
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm,
+        pipeline=pipeline, http_client=_StubHTTP(),  # type: ignore[arg-type]
+        data_dir=str(tmp_path),
+    )
+    from bilivideo.summarize.orchestrator import NoteResult
+
+    await orch._set_persistent_cache(info.bvid, NoteResult(_FOOD_NOTE, info, True))
+    result = await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
+    assert result.markdown == _GAME_NOTE
+    assert pipeline.fetch_calls == 1
+    assert len(llm.calls) == 1
 
 
 @dataclass

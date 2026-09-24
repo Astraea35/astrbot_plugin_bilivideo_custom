@@ -4,6 +4,7 @@ Strategy:
   1. Try platform subtitles via yt-dlp (cheap, fast).
   2. If unavailable (or `prefer_subtitle=False`), download audio and run
      BCut ASR.
+     `force_asr=True` bypasses all subtitle sources when a mismatch is detected.
   3. Return the first non-empty `TranscriptResult`, plus the audio metadata
      so the caller can clean up the file.
 """
@@ -58,12 +59,13 @@ class TranscriptPipeline:
         quality: str = "fast",
         subtitle_langs: tuple[str, ...] | None = None,
         enable_bilibili_ai_subtitle: bool = True,
+        force_asr: bool = False,
     ) -> PipelineOutput:
         loop = asyncio.get_running_loop()
         transcript: TranscriptResult | None = None
         audio_meta: AudioDownloadResult | None = None
 
-        if prefer_subtitle:
+        if prefer_subtitle and not force_asr:
             try:
                 transcript = await asyncio.wait_for(
                     loop.run_in_executor(
@@ -102,7 +104,7 @@ class TranscriptPipeline:
                 user_message="❌ 音频下载超时(视频较长或 B 站访问慢)",
             ) from exc
 
-        if not prefer_subtitle:
+        if not prefer_subtitle and not force_asr:
             transcript = await loop.run_in_executor(
                 None,
                 lambda: self._downloader.download_subtitles(video_url, langs=subtitle_langs),

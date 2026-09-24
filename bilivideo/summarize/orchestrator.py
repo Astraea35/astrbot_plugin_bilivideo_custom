@@ -41,6 +41,7 @@ from ..parsing.url_extractor import extract_bvid
 from ..subscription.store import JsonStore
 from ..transcription.pipeline import PipelineOutput, TranscriptPipeline
 from .post_process import replace_timestamp_markers, smart_truncate
+from .relevance import summary_conflicts_with_transcript, title_conflicts_with_text
 
 logger = get_logger("BiliVideo/Summary")
 
@@ -153,39 +154,67 @@ class SummaryOrchestrator:
                 user_message="❌ 转写流程异常,请稍后重试",
             ) from exc
 
-        title = (output.audio.title if output.audio else (info.title if info else "")) or "视频总结"
-        tags = ""
-        if output.audio:
-            raw_tags = (output.audio.raw_info or {}).get("tags")
-            if isinstance(raw_tags, list):
-                tags = ", ".join(str(t) for t in raw_tags)
-            elif isinstance(raw_tags, str):
-                tags = raw_tags
-
-        prompt = build_prompt(
-            title=title,
-            segments=output.transcript.segments,
-            tags=tags,
-            style=self._config.note_style,
-            enable_link=self._config.enable_link,
-            enable_summary=self._config.enable_summary,
-        )
-
-        try:
-            markdown = await asyncio.wait_for(
-                self._llm.chat(prompt, session_id="BiliVideo_plugin"),
-                timeout=LLM_CHAT_TIMEOUT_SECONDS,
+        for attempt in range(2):
+            title = (info.title if info else (output.audio.title if output.audio else "")) or "视频总结"
+            transcript_text = output.transcript.full_text
+            subtitle_mismatch = (
+                output.audio is None
+                and title_conflicts_with_text(title, transcript_text)
             )
-        except asyncio.TimeoutError as exc:
-            raise BiliVideoError(
-                f"LLM chat timed out after {LLM_CHAT_TIMEOUT_SECONDS}s",
-                user_message="❌ AI 总结超时:当前对话模型无响应,请在 AstrBot 检查或更换对话模型",
-            ) from exc
-        finally:
-            self._pipeline.cleanup_audio(output.audio)
+            if subtitle_mismatch:
+                logger.warning(f"subtitle topic mismatch for {bvid or video_url}; retrying with audio ASR")
+            else:
+                tags = ""
+                if output.audio:
+                    raw_tags = (output.audio.raw_info or {}).get("tags")
+                    if isinstance(raw_tags, list):
+                        tags = ", ".join(str(t) for t in raw_tags)
+                    elif isinstance(raw_tags, str):
+                        tags = raw_tags
 
-        if not markdown:
-            raise BiliVideoError("empty LLM output", user_message="❌ AI 返回内容为空,请重试")
+                prompt = build_prompt(
+                    title=title,
+                    segments=output.transcript.segments,
+                    tags=tags,
+                    style=self._config.note_style,
+                    enable_link=self._config.enable_link,
+                    enable_summary=self._config.enable_summary,
+                )
+                try:
+                    markdown = await asyncio.wait_for(
+                        self._llm.chat(prompt, session_id="BiliVideo_plugin"),
+                        timeout=LLM_CHAT_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError as exc:
+                    raise BiliVideoError(
+                        f"LLM chat timed out after {LLM_CHAT_TIMEOUT_SECONDS}s",
+                        user_message="❌ AI 总结超时:当前对话模型无响应,请在 AstrBot 检查或更换对话模型",
+                    ) from exc
+                finally:
+                    self._pipeline.cleanup_audio(output.audio)
+
+                if not markdown:
+                    raise BiliVideoError("empty LLM output", user_message="❌ AI 返回内容为空,请重试")
+                if not (
+                    title_conflicts_with_text(title, markdown.partition("\n")[2])
+                    or summary_conflicts_with_transcript(transcript_text, markdown)
+                ):
+                    break
+                logger.warning(f"summary topic mismatch for {bvid or video_url}; attempt {attempt + 1}")
+
+            if attempt == 1:
+                raise BiliVideoError(
+                    "summary does not match video content",
+                    user_message="❌ 总结与视频内容不符，已停止发送；请稍后重试",
+                )
+            if output.audio is None:
+                output = await self._pipeline.fetch(
+                    video_url,
+                    quality=self._config.download_quality,
+                    force_asr=True,
+                )
+                await self._transcript_cache.set(transcript_cache_key, output)
+            # With audio already transcribed, give the model one more chance.
 
         if self._config.enable_link and bvid:
             markdown = replace_timestamp_markers(markdown)
@@ -270,6 +299,12 @@ class SummaryOrchestrator:
         try:
             raw_info = entry.get("video_info")
             video_info = VideoInfo(**raw_info) if isinstance(raw_info, Mapping) else None
+            if video_info and title_conflicts_with_text(
+                video_info.title, str(entry["markdown"]).partition("\n")[2]
+            ):
+                logger.warning(f"discarding off-topic persistent summary for {bvid}")
+                await self._remove_persistent_cache_entry(bvid)
+                return None
             return NoteResult(
                 markdown=str(entry["markdown"]),
                 video_info=video_info,

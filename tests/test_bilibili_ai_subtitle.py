@@ -209,3 +209,30 @@ async def test_pipeline_uses_ai_subtitle_before_audio_asr(monkeypatch) -> None:
 
     assert output.transcript is expected
     assert output.audio is None
+
+
+@pytest.mark.asyncio
+async def test_force_asr_skips_all_subtitle_sources() -> None:
+    from bilivideo.core.types import AudioDownloadResult
+
+    class _Downloader:
+        def download_subtitles(self, *_args, **_kwargs):
+            raise AssertionError("forced ASR must skip platform subtitles")
+
+        def download_audio(self, *_args, **_kwargs):
+            return AudioDownloadResult(
+                file_path="/tmp/video.mp3", title="视频", duration=30,
+                cover_url=None, platform="bilibili", video_id="BV1xx411c7mD",
+            )
+
+    class _Transcriber:
+        def transcribe(self, *_args, **_kwargs):
+            return TranscriptResult(
+                language="zh", full_text="音频转录",
+                segments=(TranscriptSegment(start=0, end=1, text="音频转录"),),
+            )
+
+    pipeline = TranscriptPipeline(_Downloader(), _Transcriber(), object())
+    output = await pipeline.fetch("https://www.bilibili.com/video/BV1xx411c7mD", force_asr=True)
+    assert output.transcript.full_text == "音频转录"
+    assert output.audio is not None
