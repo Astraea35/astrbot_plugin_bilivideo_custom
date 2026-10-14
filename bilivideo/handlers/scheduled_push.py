@@ -11,6 +11,7 @@ from ..api.endpoints import get_latest_videos
 from ..access.control import is_auto_summary_allowed
 from ..core.exceptions import BiliVideoError
 from ..core.types import LatestVideo, VideoInfo
+from ..core.utils import is_telegram_target
 from ..messaging.forward import build_video_forward_nodes
 from ..services import BiliVideoServices
 from ..subscription.manager import Subscription
@@ -160,12 +161,12 @@ async def _build_chain(
     try:
         note = await services.orchestrator.generate(video_url)
         info = note.video_info
-        rendered = await render_note_components(services, note.markdown, video_info=note.video_info)
+        rendered = await render_note_components(services, note.markdown, video_info=note.video_info, origin=origin)
     except BiliVideoError as exc:
         services.logger.warning(f"summary generation failed: {exc}")
         rendered = exc.user_message
 
-    if config.enable_forward_message and info is not None:
+    if config.enable_forward_message and info is not None and not is_telegram_target(origin, services.astrbot_context):
         try:
             forward = build_video_forward_nodes(
                 info,

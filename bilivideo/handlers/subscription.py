@@ -21,6 +21,7 @@ from ..parsing.url_extractor import extract_uid
 from ..services import BiliVideoServices
 from ..subscription.manager import Subscription
 from ._render_helper import render_note_components, render_subscription_components
+from ..core.utils import is_telegram_target
 from ._send_helper import yield_note_response
 from ._utils import parse_command_args, parse_sub_args, resolve_subscription_index, build_filter_desc
 
@@ -326,7 +327,7 @@ async def handle_list_subscriptions(services: BiliVideoServices, event: object) 
         yield event.plain_result("📋 当前没有任何活跃的订阅。")
         return
 
-    render_method = services.config.sub_list_render_method
+    render_method = "text" if is_telegram_target(event) else services.config.sub_list_render_method
 
     # 分支 1：浏览器截图（原有）
     if render_method == "browser":
@@ -432,7 +433,7 @@ async def handle_check_updates(services: BiliVideoServices, event: object) -> As
                         elif sub.auto_summary:
                             try:
                                 note = await services.orchestrator.generate(f"https://www.bilibili.com/video/{latest.bvid}")
-                                components = await render_note_components(services, note.markdown, video_info=note.video_info)
+                                components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
                                 async for resp in yield_note_response(services, event, components, video_info=note.video_info):
                                     yield resp
                             except BiliVideoError as exc:

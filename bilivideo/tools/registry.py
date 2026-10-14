@@ -315,10 +315,10 @@ async def _send_combined_summary(
     summary_prompt = build_combined_summary_prompt(successful)
 
     note_text = await services.llm.chat(summary_prompt, session_id="BiliVideo_search")
-    rendered = await render_note_components(services, note_text)
+    rendered = await render_note_components(services, note_text, event=event)
     umo = getattr(event, "unified_msg_origin", "")
 
-    if services.config.enable_forward_message and successful and successful[0].info is not None:
+    if services.config.enable_forward_message and successful and successful[0].info is not None and getattr(event, "get_platform_name", lambda: "")() != "telegram":
         try:
             if len(successful) > 1:
                 nodes = []

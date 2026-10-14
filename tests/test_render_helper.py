@@ -1,6 +1,7 @@
 """Render helper fallback tests."""
 
 from __future__ import annotations
+import pytest
 
 from bilivideo.core.config import PluginConfig
 from bilivideo.core.exceptions import PartialRenderError, RenderError
@@ -34,7 +35,7 @@ class _Renderer:
         self.paths = paths
         self.failed_pages = failed_pages
 
-    def render(self, *args, **kwargs):
+    async def render(self, *args, **kwargs):
         if self.error is not None:
             raise self.error
         raise PartialRenderError(
@@ -51,13 +52,14 @@ class _Services:
         self.renderer = renderer
 
 
-def test_partial_render_returns_components_without_raw_string(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_partial_render_returns_components_without_raw_string(tmp_path, monkeypatch) -> None:
     image = tmp_path / "note_p2.png"
     image.write_bytes(b"fake")
     monkeypatch.setattr(_render_helper, "Image", _Image)
     monkeypatch.setattr(_render_helper, "Plain", _Plain)
 
-    rendered = _render_helper.render_note_components(
+    rendered = await _render_helper.render_note_components(
         _Services(_Renderer([image], [1])),
         "# 标题\n\n## 一\n内容",
     )
@@ -70,9 +72,10 @@ def test_partial_render_returns_components_without_raw_string(tmp_path, monkeypa
     assert not any(isinstance(item, str) for item in rendered)
 
 
-def test_render_error_returns_visible_fallback_text(monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_render_error_returns_visible_fallback_text(monkeypatch) -> None:
     monkeypatch.setattr(_render_helper, "Image", _Image)
-    rendered = _render_helper.render_note_components(
+    rendered = await _render_helper.render_note_components(
         _Services(_Renderer(error=RenderError("no CJK font"))),
         "# 标题",
     )
@@ -82,15 +85,16 @@ def test_render_error_returns_visible_fallback_text(monkeypatch) -> None:
     assert "no CJK font" in rendered
 
 
-def test_invalid_paths_return_visible_fallback_text(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_invalid_paths_return_visible_fallback_text(tmp_path, monkeypatch) -> None:
     missing = tmp_path / "missing.png"
     monkeypatch.setattr(_render_helper, "Image", _Image)
 
     class _InvalidPathRenderer:
-        def render(self, *args, **kwargs):
+        async def render(self, *args, **kwargs):
             return [missing]
 
-    rendered = _render_helper.render_note_components(
+    rendered = await _render_helper.render_note_components(
         _Services(_InvalidPathRenderer()),
         "# 标题",
     )
@@ -100,16 +104,17 @@ def test_invalid_paths_return_visible_fallback_text(tmp_path, monkeypatch) -> No
     assert str(missing) in rendered
 
 
-def test_unexpected_exception_returns_fallback_text(monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_unexpected_exception_returns_fallback_text(monkeypatch) -> None:
     """A non-RenderError surprise must still degrade to visible text."""
 
     monkeypatch.setattr(_render_helper, "Image", _Image)
 
     class _BoomRenderer:
-        def render(self, *args, **kwargs):
+        async def render(self, *args, **kwargs):
             raise ValueError("totally unexpected")
 
-    rendered = _render_helper.render_note_components(
+    rendered = await _render_helper.render_note_components(
         _Services(_BoomRenderer()), "# 标题\n\n内容"
     )
 

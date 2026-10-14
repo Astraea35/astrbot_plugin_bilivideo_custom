@@ -67,7 +67,7 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
         except Exception as exc:
             yield event.plain_result(f"❌ 酷安内容获取失败: {exc}")
             return
-        components = await render_note_components(services, note.markdown, force_image=True)
+        components = await render_note_components(services, note.markdown, force_image=True, event=event)
         async for resp in yield_note_response(services, event, components, meta=post):
             yield resp
         return
@@ -92,7 +92,7 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
         except Exception as exc:
             yield event.plain_result(f"❌ 知乎内容获取失败: {exc}")
             return
-        components = await render_note_components(services, note.markdown, force_image=True)
+        components = await render_note_components(services, note.markdown, force_image=True, event=event)
         async for resp in yield_note_response(services, event, components, meta=post):
             yield resp
         return
@@ -109,7 +109,7 @@ async def handle_summary(services: BiliVideoServices, event: object) -> AsyncIte
         yield event.plain_result(exc.user_message)
         return
 
-    components = await render_note_components(services, note.markdown, video_info=note.video_info)
+    components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
     async for resp in yield_note_response(services, event, components, video_info=note.video_info):
         yield resp
 
@@ -161,7 +161,7 @@ async def handle_latest_video(services: BiliVideoServices, event: object) -> Asy
         yield event.plain_result(exc.user_message)
         return
 
-    components = await render_note_components(services, note.markdown, video_info=note.video_info)
+    components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
     async for resp in yield_note_response(services, event, components, video_info=note.video_info):
         yield resp
 

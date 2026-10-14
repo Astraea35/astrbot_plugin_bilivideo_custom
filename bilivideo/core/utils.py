@@ -64,6 +64,22 @@ def is_valid_umo(umo: str) -> bool:
     return re.match(pattern, umo) is not None
 
 
+def is_telegram_target(target: object, context: object | None = None) -> bool:
+    """Identify Telegram events and proactive targets without changing QQ output."""
+    get_name = getattr(target, "get_platform_name", None)
+    if callable(get_name):
+        return str(get_name()).lower() == "telegram"
+    origin = str(target or "")
+    if context is not None:
+        try:
+            platform = context.get_platform_inst(origin.split(":", 1)[0])
+            if platform:
+                return platform.meta().name == "telegram"
+        except (AttributeError, KeyError, ValueError):
+            pass
+    return origin.startswith(("nas_tg:", "telegram:", "tg:"))
+
+
 def render_text_to_plain(text: str) -> str:
     """将渲染用的 HTML 片段转换为纯文本"""
     if not text:

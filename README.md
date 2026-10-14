@@ -1,3 +1,7 @@
+Telegram 的视频总结、动态文字、订阅列表和视频订阅推送默认使用 Markdown
+文字，跳过 QQ 图片排版和合并转发。动态中的原始图片仍作为媒体发送。
+NAS 联动平台会将搜索、获取、总结的过程提示更新到同一条消息。
+
 <div align="center">
   <img src="logo.png" alt="biliVideo" width="120">
 

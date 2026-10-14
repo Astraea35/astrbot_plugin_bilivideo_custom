@@ -380,7 +380,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             except Exception as exc:
                 yield event.plain_result(getattr(exc, "user_message", str(exc)))
                 return
-            components = await render_note_components(services, markdown, force_image=True)
+            components = await render_note_components(services, markdown, force_image=True, event=event)
             async for resp in yield_note_response(services, event, components, meta=post):
                 yield resp
         return
@@ -451,7 +451,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
                 yield event.plain_result(getattr(exc, 'user_message', str(exc)))
                 return
 
-            components = await render_note_components(services, note.markdown, video_info=note.video_info)
+            components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
             async for resp in yield_note_response(services, event, components, meta=data):
                 yield resp
         return
@@ -506,7 +506,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             except Exception as exc:
                 yield event.plain_result(getattr(exc, "user_message", str(exc)))
                 return
-            components = await render_note_components(services, markdown, force_image=True)
+            components = await render_note_components(services, markdown, force_image=True, event=event)
             async for resp in yield_note_response(services, event, components, meta=post):
                 yield resp
         return
@@ -526,7 +526,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             except Exception as exc:
                 yield event.plain_result(getattr(exc, "user_message", str(exc)))
                 return
-            components = await render_note_components(services, note.markdown, video_info=note.video_info)
+            components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
             async for resp in yield_note_response(services, event, components, meta=note.video_info):
                 yield resp
             return
@@ -571,7 +571,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         except BiliVideoError as exc:
             yield event.plain_result(exc.user_message)
             return
-        components = await render_note_components(services, note.markdown, video_info=note.video_info)
+        components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
         async for resp in yield_note_response(services, event, components, video_info=info):
             yield resp
 

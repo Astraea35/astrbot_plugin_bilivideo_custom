@@ -12,7 +12,7 @@ from bilivideo.subscription.manager import Subscription, SubscriptionManager
 
 
 class _MessageChain:
-    def __init__(self, *, chain: list[object]) -> None:
+    def __init__(self, chain: list[object]) -> None:
         self.chain = chain
 
 
@@ -29,6 +29,7 @@ class _Context:
 
 def _services(manager: SubscriptionManager, context: _Context) -> SimpleNamespace:
     return SimpleNamespace(
+        http_client=object(),
         astrbot_context=context,
         subscription_manager=manager,
         logger=SimpleNamespace(info=lambda *_: None, warning=lambda *_: None, error=lambda *_: None),
@@ -44,6 +45,7 @@ async def test_failed_delivery_keeps_video_pending(monkeypatch, tmp_path) -> Non
     services = _services(manager, _Context(fail=True))
 
     monkeypatch.setattr(scheduled_push, "MessageChain", _MessageChain)
+    monkeypatch.setattr(scheduled_push, "Plain", object)
     monkeypatch.setattr(
         scheduled_push,
         "get_latest_videos",
@@ -65,6 +67,7 @@ async def test_successful_delivery_marks_video_sent(monkeypatch, tmp_path) -> No
     services = _services(manager, context)
 
     monkeypatch.setattr(scheduled_push, "MessageChain", _MessageChain)
+    monkeypatch.setattr(scheduled_push, "Plain", object)
     monkeypatch.setattr(
         scheduled_push,
         "get_latest_videos",

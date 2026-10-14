@@ -141,7 +141,7 @@ async def handle_space_view(services: BiliVideoServices, event: object) -> Async
         )
     html_buffer.append("</div>")
     try:
-        components = await render_note_components(services, "\n".join(html_buffer))
+        components = await render_note_components(services, "\n".join(html_buffer), event=event)
         if components:
             yield event.chain_result(components)
             return
@@ -252,6 +252,6 @@ async def handle_video_select(services: BiliVideoServices, event: object) -> Asy
     except BiliVideoError as exc:
         yield event.plain_result(exc.user_message)
         return
-    components = await render_note_components(services, note.markdown, video_info=note.video_info)
+    components = await render_note_components(services, note.markdown, video_info=note.video_info, event=event)
     async for resp in yield_note_response(services, event, components, video_info=note.video_info):
         yield resp

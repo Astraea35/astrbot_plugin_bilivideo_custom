@@ -29,6 +29,7 @@ from ..core.utils import (
     create_qrcode,
     render_text_to_plain,
     parse_rich_text,
+    is_telegram_target,
 )
 from ..subscription.manager import SubscriptionManager, Subscription
 from ..llm.astrbot_provider import AstrbotProvider
@@ -613,7 +614,8 @@ class DynamicListener:
 
         ai_summary = await self._generate_dynamic_summary(payload, dyn_id)
 
-        if self.config.output_image:
+        telegram = is_telegram_target(origin, self.context)
+        if self.config.output_image and not telegram:
             img_path = await self.renderer.render_dynamic(payload)
             if img_path:
                 with open(img_path, "rb") as image_file:

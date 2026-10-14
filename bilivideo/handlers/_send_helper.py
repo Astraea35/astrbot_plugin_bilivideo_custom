@@ -10,6 +10,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from ..messaging.forward import build_forward_nodes
+from ..core.utils import is_telegram_target
 from ..services import BiliVideoServices
 
 
@@ -35,7 +36,8 @@ async def yield_note_response(
     """Yield either a single forward-message or the rendered components for any platform."""
     item = meta if meta is not None else video_info
 
-    if services.config.enable_forward_message and item is not None:
+    telegram = is_telegram_target(event, getattr(services, "astrbot_context", None))
+    if services.config.enable_forward_message and item is not None and not telegram:
         try:
             forward = build_forward_nodes(
                 item,
@@ -51,6 +53,9 @@ async def yield_note_response(
             # image/text below rather than crash the handler.
             services.logger.warning(f"forward fallback: {exc}")
     if isinstance(rendered, list):
+        if telegram:
+            yield event.chain_result(rendered)
+            return
         for component in rendered:
             yield event.chain_result([component])  # type: ignore[attr-defined]
         return
