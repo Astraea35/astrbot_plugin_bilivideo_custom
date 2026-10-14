@@ -15,6 +15,7 @@ from urllib.parse import urlparse, unquote
 from ..access.control import is_allowed, is_auto_summary_allowed
 from ..api.endpoints import get_video_info
 from ..core.exceptions import BiliVideoError
+from ..core.utils import is_telegram_target
 from ..coolapk import extract_coolapk_url, fetch_coolapk_post
 from ..zhihu import extract_zhihu_url
 from ..messaging.builders import format_video_summary_lines
@@ -359,7 +360,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             response_lines.append(f"🔗 网页直达: {post.url}")
 
         chain = []
-        if getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
+        if not is_telegram_target(event) and getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
             try:
                 chain.append(Image.fromURL(post.images[0]))
             except Exception:
@@ -417,7 +418,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         local_img_path = None
         cache_dir = Path("data/bili_video_cache")
         
-        if getattr(services.config, "detect_show_cover", True) and data["cover"]:
+        if not is_telegram_target(event) and getattr(services.config, "detect_show_cover", True) and data["cover"]:
             try:
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 local_img_path = cache_dir / f"dy_thumb_{data['video_id']}.png"
@@ -483,7 +484,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             response_lines.append(f"🔗 网页直达: {post.source_url}")
 
         chain = []
-        if getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
+        if not is_telegram_target(event) and getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
             try:
                 chain.append(Image.fromURL(post.images[0]))
             except Exception:
@@ -555,7 +556,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         return
 
     chain = []
-    if services.config.detect_show_cover and info.normalized_pic and Image is not None:
+    if not is_telegram_target(event) and services.config.detect_show_cover and info.normalized_pic and Image is not None:
         chain.append(Image.fromURL(info.normalized_pic))
     if Plain is not None:
         chain.append(Plain("\n".join(format_video_summary_lines(info, config=services.config))))

@@ -4,6 +4,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from bilivideo.core.utils import is_telegram_target
+from bilivideo.core.config import PluginConfig
+from bilivideo.handlers import auto_detect
 from bilivideo.handlers._render_helper import render_note_components
 from bilivideo.handlers._send_helper import yield_note_response
 
@@ -47,3 +49,32 @@ async def test_telegram_does_not_use_qq_forward_messages():
         )
     ]
     assert results == [("text", "**完整总结**")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("platform,expected_images", [("telegram", 0), ("aiocqhttp", 1)])
+async def test_auto_detect_cover_is_only_sent_to_qq(monkeypatch, platform, expected_images):
+    from astrbot.api.message_components import Image, Plain
+
+    monkeypatch.setattr(auto_detect, "Image", Image)
+    monkeypatch.setattr(auto_detect, "Plain", Plain)
+    monkeypatch.setattr(auto_detect, "_resolve_bvid", AsyncMock(return_value="BV123"))
+    monkeypatch.setattr(
+        auto_detect, "get_video_info",
+        AsyncMock(return_value=SimpleNamespace(normalized_pic="https://example.com/cover.jpg")),
+    )
+    monkeypatch.setattr(auto_detect, "format_video_summary_lines", lambda *args, **kwargs: ["video metadata"])
+    services = SimpleNamespace(
+        config=PluginConfig(detect_show_cover=True, detect_auto_summary=False),
+        enable_miniapp_detect=True,
+        http_client=None,
+    )
+    event = SimpleNamespace(
+        message_str="https://www.bilibili.com/video/BV123",
+        get_platform_name=lambda: platform,
+        chain_result=lambda chain: chain,
+    )
+    results = [result async for result in auto_detect.handle_auto_detect(services, event)]
+    assert len(results) == 1
+    assert sum(isinstance(item, Image) for item in results[0]) == expected_images
+    assert any(isinstance(item, Plain) for item in results[0])
