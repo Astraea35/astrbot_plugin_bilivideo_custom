@@ -80,7 +80,7 @@ def is_telegram_target(target: object, context: object | None = None) -> bool:
     return origin.startswith(("nas_tg:", "telegram:", "tg:"))
 
 
-def render_text_to_plain(text: str) -> str:
+def render_text_to_plain(text: str, *, preserve_spacing: bool = False) -> str:
     """将渲染用的 HTML 片段转换为纯文本"""
     if not text:
         return ""
@@ -91,6 +91,8 @@ def render_text_to_plain(text: str) -> str:
     plain = re.sub(r"</?[^>]+>", "", plain)
     plain = html.unescape(plain)
     lines = [line.strip() for line in plain.splitlines()]
+    if preserve_spacing:
+        return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
     return "\n".join(line for line in lines if line)
 
 

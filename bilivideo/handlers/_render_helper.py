@@ -44,9 +44,17 @@ async def render_note_components(
 ) -> list[Any] | str:
     """Render an AI summary, optionally enriching Bilibili image output."""
     if is_telegram_target(event or origin, getattr(services, "astrbot_context", None)):
-        text = render_text_to_plain(markdown_text)
-        if video_info is not None and video_info.bvid not in text:
-            text += f"\n\nhttps://www.bilibili.com/video/{video_info.bvid}"
+        text = render_text_to_plain(markdown_text, preserve_spacing=True)
+        if video_info is not None:
+            title = video_info.title
+            owner = video_info.owner_name
+            duration = _format_duration(video_info.duration)
+            text = (
+                f"**B站视频总结**\n\n{title}\n"
+                f"UP 主：{owner} · 时长：{duration}\n\n{text}"
+            )
+            if video_info.bvid not in text:
+                text += f"\n\n**原视频**\nhttps://www.bilibili.com/video/{video_info.bvid}"
         return text
     try:
         return await _render_note_components_inner(services, markdown_text, video_info=video_info, force_image=force_image)

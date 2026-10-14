@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from bilivideo.core.utils import is_telegram_target
+from bilivideo.core.types import VideoInfo
 from bilivideo.core.config import PluginConfig
 from bilivideo.handlers import auto_detect
 from bilivideo.handlers._render_helper import render_note_components
@@ -23,6 +24,21 @@ async def test_telegram_summary_skips_image_even_when_image_is_forced():
     )
     assert output == "**标题**\n正文"
     renderer.render.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_telegram_summary_keeps_paragraphs_and_source_metadata():
+    services = SimpleNamespace(astrbot_context=None)
+    event = SimpleNamespace(get_platform_name=lambda: "telegram")
+    info = VideoInfo(bvid="BV123", title="测试视频", owner_name="UP主", duration=125)
+    output = await render_note_components(
+        services, "## 第一节\n\n正文\n\n## 第二节\n\n- 要点",
+        video_info=info, event=event,
+    )
+    assert "**B站视频总结**\n\n测试视频" in output
+    assert "UP 主：UP主 · 时长：02:05" in output
+    assert "正文\n\n## 第二节" in output
+    assert output.endswith("https://www.bilibili.com/video/BV123")
 
 
 def test_proactive_telegram_is_resolved_by_actual_platform():
