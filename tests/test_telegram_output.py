@@ -35,10 +35,11 @@ async def test_telegram_summary_keeps_paragraphs_and_source_metadata():
         services, "## 第一节\n\n正文\n\n## 第二节\n\n- 要点",
         video_info=info, event=event,
     )
-    assert "**B站视频总结**\n\n测试视频" in output
-    assert "UP 主：UP主 · 时长：02:05" in output
-    assert "正文\n\n## 第二节" in output
-    assert output.endswith("https://www.bilibili.com/video/BV123")
+    text = output[-1].text if isinstance(output, list) else output
+    assert "【B站视频总结】" in text
+    assert "UP主：`UP主`" in text and "时长：`02:05`" in text
+    assert "[测试视频](https://www.bilibili.com/video/BV123)" in text
+    assert "> • 要点" in text
 
 
 def test_proactive_telegram_is_resolved_by_actual_platform():

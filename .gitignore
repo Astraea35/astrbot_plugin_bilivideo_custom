@@ -3,3 +3,7 @@
 上传GitHub.py
 upload.bat
 upload.py
+
+__pycache__/
+*.pyc
+.pytest_cache/

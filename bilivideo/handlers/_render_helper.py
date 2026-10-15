@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import io
+import re
 import time
 import uuid
 from pathlib import Path
@@ -44,18 +45,48 @@ async def render_note_components(
 ) -> list[Any] | str:
     """Render an AI summary, optionally enriching Bilibili image output."""
     if is_telegram_target(event or origin, getattr(services, "astrbot_context", None)):
-        text = render_text_to_plain(markdown_text, preserve_spacing=True)
+        clean_md = render_text_to_plain(markdown_text, preserve_spacing=True)
+        if video_info is None:
+            return clean_md
+
+        summary_lines = []
+        for line in clean_md.strip().splitlines():
+            l = line.strip()
+            if not l:
+                continue
+            if re.match(r"^#{1,6}\s+", l):
+                summary_lines.append(f"\n🎯 **{re.sub(r'^#{1,6}\s+', '', l)}**")
+            elif re.match(r"^[-*•]\s+", l):
+                summary_lines.append(f"> • {re.sub(r'^[-*•]\s+', '', l)}")
+            elif re.match(r"^\d+[.)]\s+", l):
+                summary_lines.append(f"> {l}")
+            else:
+                summary_lines.append(f"> {l}")
+        formatted_summary = "\n".join(summary_lines).strip()
+
         if video_info is not None:
             title = video_info.title
             owner = video_info.owner_name
             duration = _format_duration(video_info.duration)
+            bvid = video_info.bvid
+            video_link = f"https://www.bilibili.com/video/{bvid}"
             text = (
-                f"**B站视频总结**\n\n{title}\n"
-                f"UP 主：{owner} · 时长：{duration}\n\n{text}"
+                f"🎬 **【B站视频总结】**\n\n"
+                f"📌 **[{title}]({video_link})**\n"
+                f"👤 UP主：`{owner}`  ⏱️ 时长：`{duration}`\n\n"
+                f"{formatted_summary}\n\n"
+                f"🔗 传送门：[点击观看原视频]({video_link})"
             )
-            if video_info.bvid not in text:
-                text += f"\n\n**原视频**\nhttps://www.bilibili.com/video/{video_info.bvid}"
-        return text
+            cover_url = getattr(video_info, "cover_url", "") or getattr(video_info, "pic", "")
+            if cover_url and Image is not None:
+                try:
+                    return [Image.fromURL(cover_url), Plain(text)]
+                except Exception:
+                    pass
+            if Plain is not None:
+                return [Plain(text)]
+            return text
+        return formatted_summary or clean_md
     try:
         return await _render_note_components_inner(services, markdown_text, video_info=video_info, force_image=force_image)
     except Exception as exc:
