@@ -22,6 +22,9 @@ from ..core.types import FeaturedComment, VideoInfo
 from ..core.utils import is_telegram_target, render_text_to_plain
 from ..services import BiliVideoServices
 
+from ..messaging.builders import format_video_stats
+from ..messaging.forward import _format_meta_lines
+
 # 从 render 目录载入已更新的本地降级渲染模块
 from ..render.pillow_renderer import draw_subscription_image
 
@@ -39,59 +42,128 @@ async def render_note_components(
     markdown_text: str,
     *,
     video_info: VideoInfo | None = None,
+    meta: Any | None = None,
     force_image: bool = False,
     event: object | None = None,
     origin: str = "",
 ) -> list[Any] | str:
     """Render an AI summary, optionally enriching Bilibili image output."""
     if is_telegram_target(event or origin, getattr(services, "astrbot_context", None)):
-        clean_md = render_text_to_plain(markdown_text, preserve_spacing=True)
-        if video_info is None:
-            return clean_md
-
-        summary_lines = []
-        for line in clean_md.strip().splitlines():
-            l = line.strip()
-            if not l:
-                continue
-            if re.match(r"^#{1,6}\s+", l):
-                summary_lines.append(f"> 🎯 **{re.sub(r'^#{1,6}\s+', '', l)}**")
-            elif re.match(r"^[-*•]\s+", l):
-                summary_lines.append(f"> • {re.sub(r'^[-*•]\s+', '', l)}")
-            elif re.match(r"^\d+[.)]\s*", l):
-                summary_lines.append(f"> {l}")
-            else:
-                summary_lines.append(f"> {l}")
-        formatted_summary = "\n".join(summary_lines).strip()
-
-        if video_info is not None:
-            title = video_info.title
-            owner = video_info.owner_name
-            duration = _format_duration(video_info.duration)
-            bvid = video_info.bvid
-            video_link = f"https://www.bilibili.com/video/{bvid}"
-            text = (
-                f"🎬 **【B站视频总结】**\n\n"
-                f"• **标题**：[{title}]({video_link})\n"
-                f"👤 UP主：`{owner}`  ⏱️ 时长：`{duration}`\n\n"
-                f"{formatted_summary}\n\n"
-                f"🔗 传送门：[点击观看原视频]({video_link})"
-            )
-            cover_url = getattr(video_info, "cover_url", "") or getattr(video_info, "pic", "")
-            if cover_url and Image is not None:
-                try:
-                    return [Image.fromURL(cover_url), Plain(text)]
-                except Exception:
-                    pass
-            if Plain is not None:
-                return [Plain(text)]
-            return text
-        return formatted_summary or clean_md
+        item = meta if meta is not None else video_info
+        return await _render_telegram_unified_note(services, markdown_text, item=item)
     try:
         return await _render_note_components_inner(services, markdown_text, video_info=video_info, force_image=force_image)
     except Exception as exc:
         logger.warning(f"render_note_components unexpected failure: {exc}", exc_info=True)
         return _render_fallback_text(markdown_text, f"渲染流程异常: {exc}")
+
+
+async def _render_telegram_unified_note(
+    services: BiliVideoServices,
+    markdown_text: str,
+    *,
+    item: Any | None = None,
+) -> list[Any] | str:
+    clean_md = render_text_to_plain(markdown_text, preserve_spacing=True)
+
+    summary_lines: list[str] = []
+    for line in clean_md.strip().splitlines():
+        l = line.strip()
+        if not l:
+            continue
+        if re.match(r"^#{1,6}\s+", l):
+            if summary_lines:
+                summary_lines.append(">")
+            summary_lines.append(f"> 🎯 **{re.sub(r'^#{1,6}\s+', '', l)}**")
+        elif re.match(r"^[-*•]\s+", l):
+            summary_lines.append(f"> • {re.sub(r'^[-*•]\s+', '', l)}")
+        elif re.match(r"^\d+[.)]\s*", l):
+            summary_lines.append(f"> {l}")
+        else:
+            summary_lines.append(f"> {l}")
+    formatted_summary = "\n".join(summary_lines).strip()
+
+    if item is None:
+        text = f"📝 **AI 视频总结**\n{formatted_summary}" if formatted_summary else clean_md
+        return [Plain(text)] if Plain is not None else text
+
+    if isinstance(item, VideoInfo):
+        cover_url = item.normalized_pic or getattr(item, "pic", "") or getattr(item, "cover_url", "")
+        preview_prefix = f"[\u200b]({cover_url})" if cover_url else ""
+        header = f"{preview_prefix}📺 **{item.title}**"
+
+        meta_parts = [f"> 👤 **UP主**：{item.owner_name}"]
+        duration = _format_duration(item.duration)
+        if duration and duration != "0:00":
+            meta_parts.append(f"> ⏱️ **时长**：{duration}")
+        if item.desc:
+            desc_clean = re.sub(r"\s+", " ", item.desc).strip()
+            if len(desc_clean) > 120:
+                desc_clean = desc_clean[:120] + "..."
+            meta_parts.append(f"> 📝 **简介**：{desc_clean}")
+        if item.pubdate:
+            try:
+                pub_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(item.pubdate))
+                meta_parts.append(f"> 📅 **发布时间**：{pub_str}")
+            except (ValueError, OSError):
+                pass
+        stats_str = format_video_stats(item)
+        if stats_str:
+            meta_parts.append(f"> 📊 **互动数据**：{stats_str}")
+        meta_parts.append(f"> 🔗 **视频直达**：{item.url}")
+        meta_block = "\n".join(meta_parts)
+
+        comments: tuple[FeaturedComment, ...] = ()
+        count = getattr(services.config, "summary_featured_comment_count", 0) if hasattr(services, "config") else 0
+        if count > 0 and getattr(services, "http_client", None) is not None:
+            try:
+                comments = await get_featured_comments(
+                    services.http_client,
+                    item,
+                    count=count,
+                    reply_count=getattr(services.config, "summary_comment_reply_count", 2),
+                )
+            except Exception as exc:
+                logger.info(f"featured comments skipped for telegram: {exc}")
+
+        comment_section: list[str] = []
+        if comments:
+            comment_section.append(f"💬 **前排精选评论** (热门 {len(comments)} 条)")
+            for comment in comments:
+                author = comment.author_name or "热评用户"
+                c_text = _shorten(comment.content, 140).replace("\n", " ")
+                comment_lines = [
+                    f"> 👤 **{author}** (👍 {comment.like})",
+                    f"> {c_text}",
+                ]
+                for reply in comment.replies:
+                    r_author = reply.author_name or "回复"
+                    r_text = _shorten(reply.content, 80).replace("\n", " ")
+                    comment_lines.append(f"> ↳ **{r_author}** (👍 {reply.like}): {r_text}")
+                comment_section.append("\n".join(comment_lines))
+
+        sections = [header, meta_block]
+        if formatted_summary:
+            sections.append(f"📝 **AI 视频总结**\n{formatted_summary}")
+        if comment_section:
+            sections.append("\n\n".join(comment_section))
+        unified_text = "\n\n".join(sections).strip()
+
+        return [Plain(unified_text)] if Plain is not None else unified_text
+
+    # Other platform items (CoolapkPost, ZhihuPost, Douyin dict, etc.)
+    title, cover, meta_lines, default_label = _format_meta_lines(item)
+    preview_prefix = f"[\u200b]({cover})" if cover else ""
+    header = f"{preview_prefix}{title}"
+    meta_block = "\n".join(f"> {line}" for line in meta_lines if line)
+    sections = [header]
+    if meta_block:
+        sections.append(meta_block)
+    if formatted_summary:
+        sections.append(f"{default_label}\n{formatted_summary}")
+    unified_text = "\n\n".join(sections).strip()
+
+    return [Plain(unified_text)] if Plain is not None else unified_text
 
 
 async def _render_note_components_inner(

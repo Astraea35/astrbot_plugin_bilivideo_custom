@@ -381,7 +381,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             except Exception as exc:
                 yield event.plain_result(getattr(exc, "user_message", str(exc)))
                 return
-            components = await render_note_components(services, markdown, force_image=True, event=event)
+            components = await render_note_components(services, markdown, meta=post, force_image=True, event=event)
             async for resp in yield_note_response(services, event, components, meta=post):
                 yield resp
         return
@@ -507,7 +507,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             except Exception as exc:
                 yield event.plain_result(getattr(exc, "user_message", str(exc)))
                 return
-            components = await render_note_components(services, markdown, force_image=True, event=event)
+            components = await render_note_components(services, markdown, meta=post, force_image=True, event=event)
             async for resp in yield_note_response(services, event, components, meta=post):
                 yield resp
         return
@@ -556,10 +556,16 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         return
 
     chain = []
-    if services.config.detect_show_cover and info.normalized_pic and Image is not None:
-        chain.append(Image.fromURL(info.normalized_pic))
+    telegram = is_telegram_target(event)
+    summary_lines = format_video_summary_lines(info, config=services.config)
+    if telegram:
+        if services.config.detect_show_cover and info.normalized_pic and summary_lines:
+            summary_lines[0] = f"[\u200b]({info.normalized_pic}){summary_lines[0]}"
+    else:
+        if services.config.detect_show_cover and info.normalized_pic and Image is not None:
+            chain.append(Image.fromURL(info.normalized_pic))
     if Plain is not None:
-        chain.append(Plain("\n".join(format_video_summary_lines(info, config=services.config))))
+        chain.append(Plain("\n".join(summary_lines)))
     if chain:
         yield event.chain_result(chain)
 

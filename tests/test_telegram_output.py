@@ -22,7 +22,8 @@ async def test_telegram_summary_skips_image_even_when_image_is_forced():
     output = await render_note_components(
         services, "**标题**\n正文", force_image=True, event=event,
     )
-    assert output == "**标题**\n正文"
+    text = output[0].text if isinstance(output, list) else output
+    assert "正文" in text
     renderer.render.assert_not_awaited()
 
 
@@ -35,11 +36,53 @@ async def test_telegram_summary_keeps_paragraphs_and_source_metadata():
         services, "## 第一节\n\n正文\n\n## 第二节\n\n- 要点",
         video_info=info, event=event,
     )
-    text = output[-1].text if isinstance(output, list) else output
-    assert "【B站视频总结】" in text
-    assert "UP主：`UP主`" in text and "时长：`02:05`" in text
-    assert "[测试视频](https://www.bilibili.com/video/BV123)" in text
-    assert "> • 要点" in text
+    text = output[0].text if isinstance(output, list) else output
+    assert "📺 **测试视频**" in text
+    assert "UP主**：UP主" in text
+    assert "时长**：02:05" in text
+    assert "第一节" in text
+    assert "第二节" in text
+    assert "https://www.bilibili.com/video/BV123" in text
+
+
+@pytest.mark.asyncio
+async def test_telegram_summary_includes_featured_comments(monkeypatch):
+    from bilivideo.core.types import FeaturedComment, FeaturedCommentReply
+    from bilivideo.handlers import _render_helper
+
+    fake_comments = (
+        FeaturedComment(
+            author_name="热心网友",
+            content="这视频真不错，分析到位！",
+            like=123,
+            replies=(
+                FeaturedCommentReply(author_name="小明", content="确实不错", like=10),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        _render_helper, "get_featured_comments", AsyncMock(return_value=fake_comments),
+    )
+    services = SimpleNamespace(
+        config=SimpleNamespace(summary_featured_comment_count=3, summary_comment_reply_count=2),
+        http_client=object(),
+        astrbot_context=None,
+    )
+    event = SimpleNamespace(get_platform_name=lambda: "telegram")
+    info = VideoInfo(
+        bvid="BV123", title="测试视频", owner_name="UP主", duration=125,
+        pic="https://i0.hdslb.com/cover.jpg",
+    )
+    output = await render_note_components(
+        services, "## 总结\n\n要点内容", video_info=info, event=event,
+    )
+    text = output[0].text if isinstance(output, list) else output
+    assert "[\u200b](https://i0.hdslb.com/cover.jpg)" in text
+    assert "📺 **测试视频**" in text
+    assert "💬 **前排精选评论** (热门 1 条)" in text
+    assert "👤 **热心网友** (👍 123)" in text
+    assert "这视频真不错，分析到位！" in text
+    assert "↳ **小明** (👍 10): 确实不错" in text
 
 
 def test_proactive_telegram_is_resolved_by_actual_platform():
@@ -69,7 +112,7 @@ async def test_telegram_does_not_use_qq_forward_messages():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("platform,expected_images", [("telegram", 1), ("aiocqhttp", 1)])
+@pytest.mark.parametrize("platform,expected_images", [("telegram", 0), ("aiocqhttp", 1)])
 async def test_auto_detect_cover_is_only_sent_to_qq(monkeypatch, platform, expected_images):
     from astrbot.api.message_components import Image, Plain
 
