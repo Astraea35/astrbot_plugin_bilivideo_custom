@@ -615,6 +615,64 @@ class DynamicListener:
         ai_summary = await self._generate_dynamic_summary(payload, dyn_id)
 
         telegram = is_telegram_target(origin, self.context)
+        if telegram:
+            action = self.plain_actions.get(payload.type, "发布了新动态")
+            header = f"📣 **【B站动态】** UP主 **{payload.name}** {action}"
+
+            card_lines = []
+            if payload.title:
+                card_lines.append(f"• **标题**：{payload.title}")
+
+            body_text = render_text_to_plain(payload.text)
+            if body_text:
+                for line in body_text.strip().splitlines():
+                    l = line.strip()
+                    if l:
+                        card_lines.append(f"> {l}")
+
+            if payload.forward:
+                fwd = payload.forward
+                fwd_text = render_text_to_plain(fwd.text)
+                if fwd_text:
+                    fwd_name = getattr(fwd, "name", "UP主")
+                    card_lines.append(f"> 🔄 **转发自 @{fwd_name}**:")
+                    for line in fwd_text.strip().splitlines():
+                        l = line.strip()
+                        if l:
+                            card_lines.append(f"> {l}")
+
+            if ai_summary:
+                card_lines.append("> 🤖 **【AI 摘要】**")
+                for line in ai_summary.strip().splitlines():
+                    l = line.strip()
+                    if l:
+                        card_lines.append(f"> {l}")
+
+            if payload.url:
+                card_lines.append(f"🔗 传送门：[查看原动态]({payload.url})")
+
+            caption_text = f"{header}\n\n" + "\n".join(card_lines)
+
+            hero_pic = None
+            if payload.image_urls and payload.image_urls[0]:
+                hero_pic = payload.image_urls[0]
+            elif payload.forward and getattr(payload.forward, "image_urls", None) and payload.forward.image_urls[0]:
+                hero_pic = payload.forward.image_urls[0]
+
+            if hero_pic and Image is not None:
+                chain = [Image.fromURL(hero_pic), Plain(caption_text)]
+            else:
+                chain = [Plain(caption_text)]
+
+            notification = SubscriptionNotification(
+                sub_user=origin,
+                chain_parts=chain,
+                category="dynamic",
+                dyn_id=dyn_id,
+            )
+            await self.dispatcher.publish(notification)
+            return
+
         if self.config.output_image and not telegram:
             img_path = await self.renderer.render_dynamic(payload)
             if img_path:

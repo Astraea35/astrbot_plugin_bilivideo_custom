@@ -360,7 +360,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             response_lines.append(f"🔗 网页直达: {post.url}")
 
         chain = []
-        if not is_telegram_target(event) and getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
+        if getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
             try:
                 chain.append(Image.fromURL(post.images[0]))
             except Exception:
@@ -418,7 +418,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         local_img_path = None
         cache_dir = Path("data/bili_video_cache")
         
-        if not is_telegram_target(event) and getattr(services.config, "detect_show_cover", True) and data["cover"]:
+        if getattr(services.config, "detect_show_cover", True) and data["cover"]:
             try:
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 local_img_path = cache_dir / f"dy_thumb_{data['video_id']}.png"
@@ -484,7 +484,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
             response_lines.append(f"🔗 网页直达: {post.source_url}")
 
         chain = []
-        if not is_telegram_target(event) and getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
+        if getattr(services.config, "detect_show_cover", True) and post.images and Image is not None:
             try:
                 chain.append(Image.fromURL(post.images[0]))
             except Exception:
@@ -556,7 +556,7 @@ async def handle_auto_detect(services: BiliVideoServices, event: object) -> Asyn
         return
 
     chain = []
-    if not is_telegram_target(event) and services.config.detect_show_cover and info.normalized_pic and Image is not None:
+    if services.config.detect_show_cover and info.normalized_pic and Image is not None:
         chain.append(Image.fromURL(info.normalized_pic))
     if Plain is not None:
         chain.append(Plain("\n".join(format_video_summary_lines(info, config=services.config))))

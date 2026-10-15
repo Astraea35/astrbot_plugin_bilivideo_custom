@@ -69,7 +69,7 @@ async def test_telegram_does_not_use_qq_forward_messages():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("platform,expected_images", [("telegram", 0), ("aiocqhttp", 1)])
+@pytest.mark.parametrize("platform,expected_images", [("telegram", 1), ("aiocqhttp", 1)])
 async def test_auto_detect_cover_is_only_sent_to_qq(monkeypatch, platform, expected_images):
     from astrbot.api.message_components import Image, Plain
 

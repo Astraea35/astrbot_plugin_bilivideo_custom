@@ -188,6 +188,8 @@ async def _build_chain(
             services.logger.warning(f"forward path failed, fallback: {exc}")
 
     if isinstance(rendered, list):
+        if len(rendered) >= 2 and hasattr(rendered[0], "url") and hasattr(rendered[1], "text"):
+            return [rendered[0], Plain(f"{push_header}\n{rendered[1].text}")]
         return [Plain(push_header), *list(rendered)]
     if info is not None:
         body = f"{push_header}━━━━━━━━━━━━━━━━━━━\n\n{rendered}"

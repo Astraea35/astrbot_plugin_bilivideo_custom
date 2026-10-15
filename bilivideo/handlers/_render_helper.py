@@ -55,10 +55,10 @@ async def render_note_components(
             if not l:
                 continue
             if re.match(r"^#{1,6}\s+", l):
-                summary_lines.append(f"\n🎯 **{re.sub(r'^#{1,6}\s+', '', l)}**")
+                summary_lines.append(f"> 🎯 **{re.sub(r'^#{1,6}\s+', '', l)}**")
             elif re.match(r"^[-*•]\s+", l):
                 summary_lines.append(f"> • {re.sub(r'^[-*•]\s+', '', l)}")
-            elif re.match(r"^\d+[.)]\s+", l):
+            elif re.match(r"^\d+[.)]\s*", l):
                 summary_lines.append(f"> {l}")
             else:
                 summary_lines.append(f"> {l}")
@@ -72,7 +72,7 @@ async def render_note_components(
             video_link = f"https://www.bilibili.com/video/{bvid}"
             text = (
                 f"🎬 **【B站视频总结】**\n\n"
-                f"📌 **[{title}]({video_link})**\n"
+                f"• **标题**：[{title}]({video_link})\n"
                 f"👤 UP主：`{owner}`  ⏱️ 时长：`{duration}`\n\n"
                 f"{formatted_summary}\n\n"
                 f"🔗 传送门：[点击观看原视频]({video_link})"
