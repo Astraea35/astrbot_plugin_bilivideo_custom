@@ -44,6 +44,7 @@ from .post_process import replace_timestamp_markers, smart_truncate
 from .relevance import summary_conflicts_with_transcript, title_conflicts_with_text
 
 logger = get_logger("BiliVideo/Summary")
+_SUMMARY_MISMATCH_MAX_RETRIES = 3
 
 
 @dataclass(slots=True)
@@ -154,7 +155,9 @@ class SummaryOrchestrator:
                 user_message="❌ 转写流程异常,请稍后重试",
             ) from exc
 
-        for attempt in range(2):
+        summary_retries = 0
+        asr_refresh_attempted = False
+        while True:
             title = (info.title if info else (output.audio.title if output.audio else "")) or "视频总结"
             transcript_text = output.transcript.full_text
             subtitle_mismatch = (
@@ -200,21 +203,26 @@ class SummaryOrchestrator:
                     or summary_conflicts_with_transcript(transcript_text, markdown)
                 ):
                     break
-                logger.warning(f"summary topic mismatch for {bvid or video_url}; attempt {attempt + 1}")
-
-            if attempt == 1:
-                raise BiliVideoError(
-                    "summary does not match video content",
-                    user_message="❌ 总结与视频内容不符，已停止发送；请稍后重试",
+                summary_retries += 1
+                logger.warning(
+                    f"summary topic mismatch for {bvid or video_url}; "
+                    f"retry {summary_retries}/{_SUMMARY_MISMATCH_MAX_RETRIES}"
                 )
-            if output.audio is None:
+                if summary_retries > _SUMMARY_MISMATCH_MAX_RETRIES:
+                    raise BiliVideoError(
+                        "summary does not match video content",
+                        user_message="❌ 总结与视频内容不符，已停止发送；请稍后重试",
+                    )
+
+            if output.audio is None and not asr_refresh_attempted:
+                asr_refresh_attempted = True
                 output = await self._pipeline.fetch(
                     video_url,
                     quality=self._config.download_quality,
                     force_asr=True,
                 )
                 await self._transcript_cache.set(transcript_cache_key, output)
-            # With audio already transcribed, give the model one more chance.
+            # With audio already transcribed, retry the LLM with the same transcript.
 
         if self._config.enable_link and bvid:
             markdown = replace_timestamp_markers(markdown)

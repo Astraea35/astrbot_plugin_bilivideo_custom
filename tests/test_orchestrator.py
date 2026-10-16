@@ -126,7 +126,19 @@ async def test_unrelated_subtitle_falls_back_to_audio_asr(monkeypatch) -> None:
 async def test_unrelated_llm_answer_is_not_cached(monkeypatch) -> None:
     info = VideoInfo(bvid="BV1xx411c7mD", title=_GAME_TITLE, owner_name="一诚xy")
     _patch_get_video_info(monkeypatch, info)
-    pipeline = _StubPipeline(PipelineOutput(_transcript(_GAME_TEXT), None))
+    audio = AudioDownloadResult(
+        file_path="/tmp/game.mp3", title=_GAME_TITLE, duration=30,
+        cover_url=None, platform="bilibili", video_id=info.bvid,
+    )
+
+    class _RetryPipeline(_StubPipeline):
+        async def fetch(self, video_url: str, **kwargs: Any) -> PipelineOutput:
+            self.fetch_calls += 1
+            if kwargs.get("force_asr"):
+                return PipelineOutput(_transcript(_GAME_TEXT), audio)
+            return self.output
+
+    pipeline = _RetryPipeline(PipelineOutput(_transcript(_GAME_TEXT), None))
     llm = _StubLLM(_FOOD_NOTE)
     orch = SummaryOrchestrator(
         config=PluginConfig.from_mapping({}), llm=llm,
@@ -135,9 +147,38 @@ async def test_unrelated_llm_answer_is_not_cached(monkeypatch) -> None:
 
     with pytest.raises(BiliVideoError, match="summary does not match"):
         await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
-    assert len(llm.calls) == 2
+    assert len(llm.calls) == 4
     assert pipeline.fetch_calls == 2
     assert await orch._cache.get(info.bvid) is None
+
+
+@pytest.mark.asyncio
+async def test_summary_retries_until_content_matches(monkeypatch) -> None:
+    info = VideoInfo(bvid="BV1xx411c7mD", title=_GAME_TITLE, owner_name="一诚xy")
+    _patch_get_video_info(monkeypatch, info)
+    audio = AudioDownloadResult(
+        file_path="/tmp/game.mp3", title=_GAME_TITLE, duration=30,
+        cover_url=None, platform="bilibili", video_id=info.bvid,
+    )
+    pipeline = _StubPipeline(PipelineOutput(_transcript(_GAME_TEXT), audio))
+
+    class _EventuallyCorrectLLM(_StubLLM):
+        async def chat(self, prompt: str, *, session_id: str | None = None) -> str:
+            self.calls.append(prompt)
+            if len(self.calls) < 4:
+                return _FOOD_NOTE
+            return _GAME_NOTE
+
+    llm = _EventuallyCorrectLLM()
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm,
+        pipeline=pipeline, http_client=_StubHTTP(),  # type: ignore[arg-type]
+    )
+
+    result = await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
+
+    assert result.markdown == _GAME_NOTE
+    assert len(llm.calls) == 4
 
 
 @pytest.mark.asyncio
