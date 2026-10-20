@@ -24,6 +24,9 @@ except Exception:
     Plain = Image = MessageChain = None
 
 
+_SUMMARY_RETRY_DELAYS = (5, 10, 15)
+
+
 async def push_callback(
     services: BiliVideoServices,
     origin: str,
@@ -158,13 +161,29 @@ async def _build_chain(
         chain.append(Plain("\n".join(lines)))
         return chain
 
-    try:
-        note = await services.orchestrator.generate(video_url)
-        info = note.video_info
-        rendered = await render_note_components(services, note.markdown, video_info=note.video_info, origin=origin)
-    except BiliVideoError as exc:
-        services.logger.warning(f"summary generation failed: {exc}")
-        rendered = exc.user_message
+    for attempt in range(len(_SUMMARY_RETRY_DELAYS) + 1):
+        try:
+            note = await services.orchestrator.generate(video_url)
+            rendered = await render_note_components(
+                services, note.markdown, video_info=note.video_info, origin=origin
+            )
+            info = note.video_info
+            break
+        except BiliVideoError as exc:
+            if attempt == len(_SUMMARY_RETRY_DELAYS):
+                services.logger.warning(f"subscription summary retries exhausted for {bvid}: {exc}")
+                return [
+                    Plain(
+                        f"{push_header}{exc.user_message}\n"
+                        f"（已自动重试 {attempt} 次，仍未成功）\n🔗 {video_url}"
+                    )
+                ]
+            delay = _SUMMARY_RETRY_DELAYS[attempt]
+            services.logger.warning(
+                f"subscription summary failed for {bvid}; "
+                f"retry {attempt + 1}/{len(_SUMMARY_RETRY_DELAYS)} in {delay}s: {exc}"
+            )
+            await asyncio.sleep(delay)
 
     if config.enable_forward_message and info is not None and not is_telegram_target(origin, services.astrbot_context):
         try:
