@@ -19,18 +19,20 @@ def _long_doc() -> str:
     return "\n".join(parts)
 
 
-def test_wkhtml_renderer_partial_keeps_successful_pages(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_wkhtml_renderer_partial_keeps_successful_pages(tmp_path, monkeypatch) -> None:
     renderer = WkHtmlRenderer(output_dir=tmp_path)
 
-    def _render_page(markdown_text, destination: Path, **kwargs):
+    async def _render_page(markdown_text, destination: Path, **kwargs):
         if destination.name.endswith("_p1.png"):
             raise RenderError("page1")
         destination.write_bytes(b"ok")
+        return [destination]
 
     monkeypatch.setattr(renderer, "_render_html_to_png", _render_page)
 
     with pytest.raises(PartialRenderError) as exc:
-        renderer.render(_long_doc(), base_filename="note", max_cards_per_image=1, enable_split=True)
+        await renderer.render(_long_doc(), base_filename="note", max_cards_per_image=1, enable_split=True)
 
     assert exc.value.failed_pages == [1]
     assert [path.name for path in exc.value.generated_paths] == ["note_p2.png", "note_p3.png"]

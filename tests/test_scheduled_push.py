@@ -84,6 +84,23 @@ async def test_successful_delivery_marks_video_sent(monkeypatch, tmp_path) -> No
     assert (await manager.get_subscription("origin", "42")).last_bvid == "BVnew"
 
 
+@pytest.mark.asyncio
+async def test_incomplete_forward_keeps_video_pending(monkeypatch, tmp_path) -> None:
+    manager = SubscriptionManager(str(tmp_path))
+    await manager.add_subscription("origin", "42", "UP", sub_types=["视频"])
+    await manager.update_last_video("origin", "42", "BVold")
+    sub = (await manager.get_subscriptions("origin"))[0]
+    services = _services(manager, _Context(fail=False))
+    monkeypatch.setattr(scheduled_push, "MessageChain", _MessageChain)
+    monkeypatch.setattr(scheduled_push, "get_latest_videos", AsyncMock(return_value=await _latest_video()))
+    monkeypatch.setattr(scheduled_push, "_build_chain", AsyncMock(return_value=[object()]))
+    monkeypatch.setattr(
+        scheduled_push, "send_message_checked", AsyncMock(side_effect=RuntimeError("QQ 合并转发不完整"))
+    )
+    assert await scheduled_push.push_callback(services, "origin", sub) == 0
+    assert (await manager.get_subscription("origin", "42")).last_bvid == "BVold"
+
+
 async def _latest_video() -> list[LatestVideo]:
     return [LatestVideo(bvid="BVnew", title="new video")]
 

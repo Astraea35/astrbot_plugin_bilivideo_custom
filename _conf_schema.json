@@ -107,7 +107,7 @@
       "image_width": { "type": "int", "default": 1320, "min": 800, "max": 2400, "description": "图片画布宽度(像素)", "hint": "自定义总结长图的基础宽度值。iPhone 17 Pro Max 完美适配推荐填写 1320" },
       "image_output_format": { "type": "string", "default": "png", "options": ["png", "jpg", "webp"], "description": "长图输出格式", "hint": "选择生成长图的文件格式。png清晰度最高，jpg体积小，webp兼顾体积与画质" },
       "image_quality": { "type": "int", "default": 100, "minimum": 1, "maximum": 100, "description": "图片画质质量", "hint": "数值越高画质越好，文件越大。PNG 格式会忽略此设置。推荐 95-100" },
-      "enable_auto_split": { "type": "bool", "default": true, "description": "长视频自动分图", "hint": "总结过长时自动按章节拆成多张图片推送" },
+      "enable_auto_split": { "type": "bool", "default": true, "description": "长视频自动分图", "hint": "按章节拆图；无论本项是否开启，超出安全像素尺寸时都会自动分图，避免 QQ 丢失总结" },
       "max_cards_per_image": { "type": "int", "default": 6, "min": 2, "max": 12, "description": "每图最大卡片数", "hint": "单张切图里建议包含 5~8 个卡片，平衡可读性与图片大小" },
       "image_font_size": { "type": "int", "default": 32, "min": 16, "max": 64, "description": "长图文本基础字号(px)", "hint": "适合大屏与高分辨率画布适配。iPhone 17 Pro Max 视网膜清晰比例默认推荐 32" }
     }

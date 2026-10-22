@@ -9,8 +9,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from ..messaging.forward import build_forward_nodes
 from ..core.utils import is_telegram_target
+from ..messaging.delivery import try_send_qq_forward
+from ..messaging.forward import build_forward_nodes
 from ..services import BiliVideoServices
 
 
@@ -45,6 +46,11 @@ async def yield_note_response(
                 bot_name=services.config.forward_bot_name,
                 bot_uin=services.config.forward_bot_uin,
             )
+            if await try_send_qq_forward(
+                getattr(services, "astrbot_context", None),
+                getattr(event, "unified_msg_origin", ""), forward,
+            ):
+                return
             yield event.chain_result([forward])  # type: ignore[attr-defined]
             return
         except Exception as exc:

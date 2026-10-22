@@ -7,11 +7,12 @@ import contextlib
 import time
 from typing import Any
 
-from ..api.endpoints import get_latest_videos
 from ..access.control import is_auto_summary_allowed
+from ..api.endpoints import get_latest_videos
 from ..core.exceptions import BiliVideoError
 from ..core.types import LatestVideo, VideoInfo
 from ..core.utils import is_telegram_target
+from ..messaging.delivery import send_message_checked
 from ..messaging.forward import build_video_forward_nodes
 from ..services import BiliVideoServices
 from ..subscription.manager import Subscription
@@ -93,12 +94,12 @@ async def push_callback(
         try:
             mc = MessageChain(chain=chain_components)
             await asyncio.wait_for(
-                services.astrbot_context.send_message(target, mc), timeout=30
+                send_message_checked(services.astrbot_context, target, mc), timeout=120
             )
             sent_count += 1
             services.logger.info(f"scheduled push send call completed for {target}: {latest.bvid}")
         except asyncio.TimeoutError:
-            services.logger.error(f"push to {target} timed out after 30 seconds")
+            services.logger.error(f"push to {target} timed out after 120 seconds")
         except Exception as exc:
             services.logger.error(f"push to {target} failed: {exc}")
 

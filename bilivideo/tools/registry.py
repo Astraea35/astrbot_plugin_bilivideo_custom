@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from ..api.endpoints import search_videos
 from ..core.logging import get_logger
+from ..messaging.delivery import send_message_checked
 from ..messaging.forward import build_video_forward_nodes
 from ..services import BiliVideoServices
 
@@ -366,7 +367,7 @@ async def _send_combined_summary(
                 )
             chain = MessageChain()
             chain.chain.append(forward)
-            await astrbot_context.send_message(umo, chain)
+            await send_message_checked(astrbot_context, umo, chain)
             return
         except Exception as exc:
             logger.warning(f"forward path failed: {exc}")

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import time
 from datetime import datetime
@@ -10,9 +11,37 @@ from pathlib import Path
 from ..core.exceptions import PartialRenderError, RenderError
 from ..core.logging import get_logger
 from .pagination import split_by_chapters
-from .templates import build_full_html, extract_title, highlight_timestamps, sanitize_html, wrap_chapters_in_cards
+from .templates import (
+    build_full_html,
+    extract_title,
+    highlight_timestamps,
+    sanitize_html,
+    wrap_chapters_in_cards,
+)
 
 logger = get_logger("BiliVideo/Render")
+
+# Current QQ/NapCat probes accept 29999px sides and reject 30000px.
+# Keep headroom and cap area as well; these are conservative output limits.
+MAX_IMAGE_SIDE = 28_000
+MAX_IMAGE_PIXELS = 64_000_000
+
+
+def _screenshot_regions(height: int, limit: int, breaks: list[int], overlap: int) -> list[tuple[int, int]]:
+    regions = []
+    top = 0
+    while top < height:
+        bottom = min(top + limit, height)
+        candidates = [point for point in breaks if top + limit // 2 < point <= bottom]
+        soft_break = bool(candidates) and bottom < height
+        if soft_break:
+            bottom = max(candidates)
+        regions.append((top, bottom - top))
+        if bottom == height:
+            break
+        # Repeat a line at hard cuts so a very long paragraph stays readable.
+        top = bottom if soft_break else max(top + 1, bottom - overlap)
+    return regions
 
 
 class WkHtmlRenderer:
@@ -48,17 +77,21 @@ class WkHtmlRenderer:
         for idx, page_md in enumerate(pages, 1):
             destination = self._output_dir / f"{base_filename}_p{idx}.png"
             try:
-                await self._render_html_to_png(
+                paths = await self._render_html_to_png(
                     page_md, destination,
                     footer_time=f"{now_str} | 第 {idx}/{len(pages)} 页",
                     page_label=f"(第 {idx}/{len(pages)} 页)",
                 )
+            except PartialRenderError as exc:
+                outputs.extend(exc.generated_paths)
+                failed_pages.append(idx)
+                page_errors[idx] = str(exc)
             except RenderError as exc:
                 logger.warning(f"page {idx}/{len(pages)} failed: {exc}")
                 failed_pages.append(idx)
                 page_errors[idx] = str(exc)
             else:
-                outputs.append(destination)
+                outputs.extend(paths)
         if failed_pages and outputs:
             raise PartialRenderError(
                 f"partial render failed; failed_pages={failed_pages}",
@@ -70,13 +103,12 @@ class WkHtmlRenderer:
 
     async def _render_single(self, markdown_text: str, base_filename: str) -> list[Path]:
         destination = self._output_dir / f"{base_filename}.png"
-        await self._render_html_to_png(
+        return await self._render_html_to_png(
             markdown_text, destination, footer_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
-        return [destination]
 
     async def _render_html_to_png(self, markdown_text: str, destination: Path, *,
-                                  footer_time: str, page_label: str | None = None) -> None:
+                                  footer_time: str, page_label: str | None = None) -> list[Path]:
         try:
             import markdown as md
             from playwright.async_api import async_playwright
@@ -125,6 +157,7 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
         destination.parent.mkdir(parents=True, exist_ok=True)
         started = time.monotonic()
         browser = None
+        outputs: list[Path] = []
         try:
             async with self._lock:
                 async with async_playwright() as playwright:
@@ -133,10 +166,27 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
                     await page.set_content(full_html, wait_until="networkidle")
                     await page.wait_for_timeout(1000)
                     save_fmt = "jpeg" if img_fmt in ("jpg", "jpeg", "webp") else "png"
-                    kwargs = {"type": save_fmt, "full_page": True}
-                    if save_fmt == "jpeg":
-                        kwargs["quality"] = img_quality
-                    await page.screenshot(path=str(destination), **kwargs)
+                    height = await page.evaluate("Math.ceil(document.documentElement.scrollHeight)")
+                    breaks = await page.locator("p, li, pre, tr, h1, h2, h3").evaluate_all(
+                        "els => els.map(el => Math.ceil(el.getBoundingClientRect().bottom + window.scrollY))"
+                    )
+                    physical_width = img_width * scale
+                    limit = math.floor(min(MAX_IMAGE_SIDE, MAX_IMAGE_PIXELS // physical_width) / scale)
+                    if physical_width > MAX_IMAGE_SIDE or limit < 1:
+                        raise RenderError("图片宽度超出安全尺寸，请降低图片宽度或缩放倍率")
+                    regions = _screenshot_regions(height, limit, breaks, base_font_size * 2)
+                    for idx, (top, clip_height) in enumerate(regions, 1):
+                        target = destination if len(regions) == 1 else destination.with_name(
+                            f"{destination.stem}_s{idx}{destination.suffix}"
+                        )
+                        await page.screenshot(
+                            path=str(target),
+                            clip={"x": 0, "y": top, "width": img_width, "height": clip_height},
+                            type="jpeg" if save_fmt == "jpeg" else "png",
+                            quality=img_quality if save_fmt == "jpeg" else None,
+                            full_page=True,
+                        )
+                        outputs.append(target)
                     await page.close()
                     await browser.close()
                     browser = None
@@ -146,11 +196,20 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
                     await browser.close()
                 except Exception:
                     pass
+            if outputs:
+                raise PartialRenderError(
+                    f"Playwright 图片分片失败: {exc}", generated_paths=outputs,
+                    failed_pages=[len(outputs) + 1],
+                ) from exc
             raise RenderError(f"Playwright 异步长图截图失败: {exc}") from exc
 
-        if not destination.exists() or destination.stat().st_size <= 0:
+        if not outputs or any(not path.exists() or path.stat().st_size <= 0 for path in outputs):
             raise RenderError("Playwright 未生成有效图片文件")
-        logger.info(f"rendered via Playwright (Async): {destination.name} ({destination.stat().st_size} bytes, {time.monotonic()-started:.2f}s)")
+        logger.info(
+            f"rendered via Playwright (Async): {destination.name} "
+            f"({len(outputs)} image(s), {time.monotonic()-started:.2f}s)"
+        )
+        return outputs
 
     def _get_current_model(self) -> str:
         llm = getattr(self._services, "llm", None) if self._services else None
