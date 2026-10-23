@@ -80,10 +80,10 @@ class DownloadError(BiliVideoError):
 class TranscriptionError(BiliVideoError):
     """字幕获取或 ASR 转写失败。"""
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, *, user_message: str | None = None) -> None:
         super().__init__(
             message,
-            user_message="❌ 视频转写失败,请稍后重试或尝试其他视频",
+            user_message=user_message or "❌ 视频转写失败,请稍后重试或尝试其他视频",
         )
 
 

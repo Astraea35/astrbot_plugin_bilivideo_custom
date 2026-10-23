@@ -134,9 +134,21 @@ class TranscriptPipeline:
             except asyncio.CancelledError:
                 cancel_event.set()
                 raise
+            except TranscriptionError as exc:
+                logger.warning(f"ASR failed for {video_url}: {exc}")
+                self.cleanup_audio(audio_meta)
+                raise
 
         if transcript is None or not transcript.has_content:
-            raise TranscriptionError("subtitle and BCut both yielded empty transcripts")
+            logger.warning(f"ASR completed without recognized speech for {video_url}")
+            self.cleanup_audio(audio_meta)
+            raise TranscriptionError(
+                "BCut completed successfully but returned no recognized speech",
+                user_message=(
+                    "ℹ️ 未获取到可用字幕，语音识别已完成但未识别出语音。"
+                    "可能是纯音乐、无旁白或人声不清晰的视频；当前无法仅凭画面生成视频内容总结。"
+                ),
+            )
 
         return PipelineOutput(transcript=transcript, audio=audio_meta)
 

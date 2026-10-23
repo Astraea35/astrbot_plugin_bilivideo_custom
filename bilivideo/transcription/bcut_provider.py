@@ -24,6 +24,7 @@ ENDPOINT_CREATE = f"{API_BASE}/resource/create"
 ENDPOINT_COMMIT = f"{API_BASE}/resource/create/complete"
 ENDPOINT_TASK = f"{API_BASE}/task"
 ENDPOINT_RESULT = f"{API_BASE}/task/result"
+MODEL_ID = "8"
 
 _HEADERS = {
     "User-Agent": "Bilibili/1.0.0 (https://www.bilibili.com)",
@@ -51,27 +52,43 @@ class BCutTranscriber:
                 payload = self._upload(session, file_path)
                 task_id = self._create_task(session, payload["download_url"])
                 data = self._await_result(session, task_id, cancel_event)
-        except (requests.RequestException, json.JSONDecodeError, KeyError) as exc:
+        except (requests.RequestException, OSError, ValueError, KeyError, TypeError) as exc:
             raise TranscriptionError(f"BCut ASR failed: {exc}") from exc
 
-        result_json = json.loads(data["result"])
+        try:
+            result_json = json.loads(data["result"])
+            if not isinstance(result_json, dict):
+                raise ValueError("result must be an object")
+            status_code = result_json.get("statusCode", 0)
+            if status_code != 0:
+                raise TranscriptionError(f"BCut recognition failed (statusCode={status_code})")
+            utterances = result_json["utterances"]
+            if not isinstance(utterances, list):
+                raise ValueError("utterances must be a list")
+        except (ValueError, KeyError, TypeError) as exc:
+            raise TranscriptionError(f"BCut invalid recognition result: {exc}") from exc
+
         segments: list[TranscriptSegment] = []
         full_pieces: list[str] = []
-        for u in result_json.get("utterances", []):
-            text = (u.get("transcript") or "").strip()
-            if not text:
-                continue
-            start_ms = float(u.get("start_time", 0))
-            end_ms = float(u.get("end_time", 0))
-            segments.append(
-                TranscriptSegment(
-                    start=start_ms / 1000.0,
-                    end=end_ms / 1000.0,
-                    text=text,
+        try:
+            for u in utterances:
+                text = (u.get("transcript") or "").strip()
+                if not text:
+                    continue
+                start_ms = float(u.get("start_time", 0))
+                end_ms = float(u.get("end_time", 0))
+                segments.append(
+                    TranscriptSegment(
+                        start=start_ms / 1000.0,
+                        end=end_ms / 1000.0,
+                        text=text,
+                    )
                 )
-            )
-            full_pieces.append(text)
+                full_pieces.append(text)
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise TranscriptionError(f"BCut invalid utterance: {exc}") from exc
 
+        logger.info(f"BCut completed: statusCode={status_code}, segments={len(segments)}")
         return TranscriptResult(
             language=result_json.get("language", "zh"),
             full_text=" ".join(full_pieces).strip(),
@@ -96,7 +113,7 @@ class BCutTranscriber:
                 "name": "audio.mp3",
                 "size": len(data),
                 "ResourceFileType": "mp3",
-                "model_id": "8",
+                "model_id": MODEL_ID,
             },
         )
         upload_urls = meta["upload_urls"]
@@ -127,7 +144,7 @@ class BCutTranscriber:
                 "ResourceId": resource_id,
                 "Etags": ",".join(etags),
                 "UploadId": upload_id,
-                "model_id": "8",
+                "model_id": MODEL_ID,
             },
         )
         return commit
@@ -136,7 +153,7 @@ class BCutTranscriber:
         payload = self._post_json(
             session,
             ENDPOINT_TASK,
-            {"resource": download_url, "model_id": "8"},
+            {"resource": download_url, "model_id": MODEL_ID},
         )
         return payload["task_id"]
 
@@ -151,14 +168,17 @@ class BCutTranscriber:
                 raise TranscriptionError("BCut transcription cancelled")
             resp = session.get(
                 ENDPOINT_RESULT,
-                params={"model_id": 7, "task_id": task_id},
+                params={"model_id": MODEL_ID, "task_id": task_id},
                 headers=_HEADERS,
                 timeout=15,
             )
             resp.raise_for_status()
             payload = resp.json()
             if payload.get("code") != 0:
-                raise TranscriptionError(payload.get("message", "BCut query failed"))
+                raise TranscriptionError(
+                    f"BCut result query failed (code={payload.get('code')}): "
+                    f"{payload.get('message', 'unknown error')}"
+                )
             data = payload["data"]
             state = data.get("state")
             if state == 4:
@@ -177,5 +197,8 @@ class BCutTranscriber:
         resp.raise_for_status()
         payload = resp.json()
         if payload.get("code") != 0:
-            raise TranscriptionError(payload.get("message", "BCut request failed"))
+            raise TranscriptionError(
+                f"BCut {url.removeprefix(API_BASE)} failed (code={payload.get('code')}): "
+                f"{payload.get('message', 'unknown error')}"
+            )
         return payload["data"]
