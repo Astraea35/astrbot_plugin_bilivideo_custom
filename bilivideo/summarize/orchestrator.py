@@ -45,6 +45,7 @@ from .relevance import summary_conflicts_with_transcript, title_conflicts_with_t
 
 logger = get_logger("BiliVideo/Summary")
 _SUMMARY_MISMATCH_MAX_RETRIES = 3
+_SUMMARY_CACHE_VERSION = 2
 
 
 @dataclass(slots=True)
@@ -116,6 +117,13 @@ class SummaryOrchestrator:
         bvid = extract_bvid(video_url)
         if bvid:
             cached = await self._cache.get(bvid)
+            if cached is not None and cached.video_info and title_conflicts_with_text(
+                cached.video_info.title, cached.markdown.partition("\n")[2]
+            ):
+                logger.warning(f"discarding off-topic memory summary for {bvid}")
+                await self._cache.invalidate(bvid)
+                await self._remove_persistent_cache_entry(bvid)
+                cached = None
             if cached is not None:
                 logger.info(f"summary cache hit for {bvid}")
                 return cached
@@ -160,11 +168,15 @@ class SummaryOrchestrator:
         while True:
             title = (info.title if info else (output.audio.title if output.audio else "")) or "视频总结"
             transcript_text = output.transcript.full_text
-            subtitle_mismatch = (
-                output.audio is None
-                and title_conflicts_with_text(title, transcript_text)
-            )
-            if subtitle_mismatch:
+            transcript_mismatch = title_conflicts_with_text(title, transcript_text)
+            if transcript_mismatch and output.audio is not None:
+                self._pipeline.cleanup_audio(output.audio)
+                await self._transcript_cache.invalidate(transcript_cache_key)
+                raise BiliVideoError(
+                    "audio transcript does not match video title",
+                    user_message="❌ 音频转写与视频标题不符，已停止生成总结；请稍后重试",
+                )
+            if transcript_mismatch:
                 logger.warning(f"subtitle topic mismatch for {bvid or video_url}; retrying with audio ASR")
             else:
                 tags = ""
@@ -182,6 +194,7 @@ class SummaryOrchestrator:
                     style=self._config.note_style,
                     enable_link=self._config.enable_link,
                     enable_summary=self._config.enable_summary,
+                    max_length=self._config.max_note_length,
                 )
                 try:
                     markdown = await asyncio.wait_for(
@@ -209,6 +222,7 @@ class SummaryOrchestrator:
                     f"retry {summary_retries}/{_SUMMARY_MISMATCH_MAX_RETRIES}"
                 )
                 if summary_retries > _SUMMARY_MISMATCH_MAX_RETRIES:
+                    await self._transcript_cache.invalidate(transcript_cache_key)
                     raise BiliVideoError(
                         "summary does not match video content",
                         user_message="❌ 总结与视频内容不符，已停止发送；请稍后重试",
@@ -216,6 +230,8 @@ class SummaryOrchestrator:
 
             if output.audio is None and not asr_refresh_attempted:
                 asr_refresh_attempted = True
+                # Do not retain rejected subtitles if the ASR fallback fails.
+                await self._transcript_cache.invalidate(transcript_cache_key)
                 output = await self._pipeline.fetch(
                     video_url,
                     quality=self._config.download_quality,
@@ -300,6 +316,9 @@ class SummaryOrchestrator:
         entry = entries.get(bvid) if isinstance(entries, Mapping) else None
         if not isinstance(entry, Mapping):
             return None
+        if entry.get("version") != _SUMMARY_CACHE_VERSION:
+            await self._remove_persistent_cache_entry(bvid)
+            return None
         if int(entry.get("expires_at", 0) or 0) <= int(time.time()):
             await self._remove_persistent_cache_entry(bvid)
             return None
@@ -328,6 +347,7 @@ class SummaryOrchestrator:
             return
 
         payload: dict[str, Any] = {
+            "version": _SUMMARY_CACHE_VERSION,
             "expires_at": int(time.time()) + SUMMARY_CACHE_TTL_SECONDS,
             "markdown": result.markdown,
             "video_info": asdict(result.video_info) if result.video_info else None,

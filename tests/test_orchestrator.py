@@ -251,6 +251,86 @@ def _patch_get_video_info(monkeypatch, info: VideoInfo | None) -> None:
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cached_at", ["none", "memory", "disk", "legacy"])
+async def test_kimi_parenting_subtitle_or_cache_is_replaced_with_audio(monkeypatch, tmp_path, cached_at):
+    from bilivideo.summarize.orchestrator import NoteResult
+    from tests.test_summary_relevance import KIMI_TITLE, PARENTING, TECH
+
+    info = VideoInfo(bvid="BV17BHA68Egy", title=KIMI_TITLE, owner_name="橘鸦Juya")
+    _patch_get_video_info(monkeypatch, info)
+    audio = AudioDownloadResult("/tmp/kimi.mp3", KIMI_TITLE, 350, None, "bilibili", info.bvid)
+    note = f"# {KIMI_TITLE}\n\n{TECH}"
+
+    class _KimiPipeline(_StubPipeline):
+        async def fetch(self, video_url, **kwargs):
+            self.fetch_calls += 1
+            return PipelineOutput(_transcript(TECH), audio) if kwargs.get("force_asr") else self.output
+
+    pipeline = _KimiPipeline(PipelineOutput(_transcript(PARENTING), None))
+    llm = _StubLLM(note)
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm, pipeline=pipeline,
+        http_client=_StubHTTP(), data_dir=str(tmp_path),
+    )
+    if cached_at != "none":
+        # Even a copied, correct title must not legitimize unrelated body text.
+        wrong = NoteResult(f"# {KIMI_TITLE}\n\n{PARENTING}", info, True)
+        await orch._set_persistent_cache(info.bvid, wrong)
+        if cached_at == "memory":
+            await orch._cache.set(info.bvid, wrong)
+        if cached_at == "legacy":
+            # Old output is invalidated even if its topic is otherwise correct.
+            def legacy(data):
+                data["entries"][info.bvid].pop("version")
+                data["entries"][info.bvid]["markdown"] = note
+            await orch._persistent_cache.mutate(legacy)
+
+    result = await orch.generate(info.url)
+    assert result.markdown == note
+    assert not result.used_subtitle
+    assert pipeline.fetch_calls == 2
+    assert len(llm.calls) == 1
+    assert PARENTING not in llm.calls[0]
+    assert TECH in llm.calls[0]
+    assert pipeline.cleanup_calls == [audio]
+    saved = (await orch._persistent_cache.read())["entries"][info.bvid]
+    assert saved["markdown"] == note
+    assert saved["version"] == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["asr_error", "wrong_audio"])
+async def test_rejected_subtitle_is_not_retained_when_asr_fails(monkeypatch, failure):
+    from tests.test_summary_relevance import KIMI_TITLE, PARENTING
+
+    info = VideoInfo(bvid="BV17BHA68Egy", title=KIMI_TITLE)
+    _patch_get_video_info(monkeypatch, info)
+    audio = AudioDownloadResult("/tmp/kimi.mp3", KIMI_TITLE, 350, None, "bilibili", info.bvid)
+
+    class _FailedASR(_StubPipeline):
+        async def fetch(self, video_url, **kwargs):
+            self.fetch_calls += 1
+            if kwargs.get("force_asr"):
+                if failure == "asr_error":
+                    raise BiliVideoError("ASR unavailable")
+                return PipelineOutput(_transcript(PARENTING), audio)
+            return self.output
+
+    pipeline = _FailedASR(PipelineOutput(_transcript(PARENTING), None))
+    llm = _StubLLM()
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm, pipeline=pipeline, http_client=_StubHTTP(),
+    )
+    with pytest.raises(BiliVideoError):
+        await orch.generate(info.url)
+    assert not llm.calls
+    assert await orch._transcript_cache.get(info.bvid) is None
+    assert await orch._cache.get(info.bvid) is None
+    if failure == "wrong_audio":
+        assert pipeline.cleanup_calls == [audio]
+
+
 # ──────────────────────── tests ────────────────────────
 
 
