@@ -32,18 +32,20 @@ def title_conflicts_with_text(title: str, text: str) -> bool:
         return False
     title_phrases = _grams(title, 3)
     latin_terms = {
-        term.casefold() for term in _LATIN_TERM.findall(title)
+        term.casefold()
+        for term in _LATIN_TERM.findall(title)
         if len(re.sub(r"[^a-z]", "", term, flags=re.IGNORECASE)) >= 3
         and term.casefold() not in _GENERIC_TERMS
     }
-    specific = (
-        (len(specific_runs) >= 2 and len(title_phrases) >= 6)
-        or bool(latin_terms and (specific_runs or re.search(r"\d", title)))
+    specific = (len(specific_runs) >= 2 and len(title_phrases) >= 6) or bool(
+        latin_terms and (specific_runs or re.search(r"\d", title))
     )
     if not specific:
         return False
     text_terms = {term.casefold() for term in _LATIN_TERM.findall(text)}
-    return not (title_phrases & _grams(text, 3) or latin_terms & text_terms)
+    # ASR may split brands and paraphrase hooks while preserving short topic words.
+    shared_words = _grams(title, 2) & _grams(text, 2)
+    return not (title_phrases & _grams(text, 3) or latin_terms & text_terms or len(shared_words) >= 2)
 
 
 def summary_conflicts_with_transcript(transcript: str, markdown: str) -> bool:
