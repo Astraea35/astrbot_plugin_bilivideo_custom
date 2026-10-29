@@ -7,3 +7,6 @@ upload.py
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Keep AstrBot instance configuration out of the plugin repository.
+/data/cmd_config.json
