@@ -78,6 +78,7 @@ class TranscriptPipeline:
                 raise BiliVideoError(
                     f"subtitle fetch timed out after {SUBTITLE_FETCH_TIMEOUT_SECONDS}s",
                     user_message="❌ 字幕获取超时(B 站访问慢,或需重新 /B站登录)",
+                    retryable=True,
                 ) from exc
             if transcript and transcript.has_content:
                 logger.info(f"subtitle hit ({len(transcript.segments)} segments)")
@@ -102,6 +103,7 @@ class TranscriptPipeline:
             raise BiliVideoError(
                 f"audio download timed out after {AUDIO_DOWNLOAD_TIMEOUT_SECONDS}s",
                 user_message="❌ 音频下载超时(视频较长或 B 站访问慢)",
+                retryable=True,
             ) from exc
 
         if not prefer_subtitle and not force_asr:

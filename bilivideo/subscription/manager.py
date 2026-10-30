@@ -24,6 +24,9 @@ class Subscription:
     last_live_start_ts: int = 0
     # 🌟 新增：精细化订阅类型白名单
     sub_types: List[str] = field(default_factory=lambda: ["视频"])
+    pending_summary_bvid: str = ""
+    summary_retry_count: int = 0
+    summary_retry_at: float = 0
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> Subscription:
@@ -40,6 +43,9 @@ class Subscription:
             live_atall=bool(raw.get("live_atall", False)),
             last_live_start_ts=int(raw.get("last_live_start_ts", 0)),
             sub_types=list(raw.get("sub_types", ["视频"])),
+            pending_summary_bvid=str(raw.get("pending_summary_bvid", "")),
+            summary_retry_count=int(raw.get("summary_retry_count", 0)),
+            summary_retry_at=float(raw.get("summary_retry_at", 0)),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,6 +62,9 @@ class Subscription:
             "live_atall": self.live_atall,
             "last_live_start_ts": self.last_live_start_ts,
             "sub_types": self.sub_types,
+            "pending_summary_bvid": self.pending_summary_bvid,
+            "summary_retry_count": self.summary_retry_count,
+            "summary_retry_at": self.summary_retry_at,
         }
 
     def update_filters(self, filter_types: List[str], filter_regex: List[str], live_atall: bool) -> None:
@@ -252,6 +261,23 @@ class SubscriptionManager:
             for up in entry.get("up_list", []):
                 if up.get("mid") == mid:
                     up["last_bvid"] = bvid
+                    up["pending_summary_bvid"] = ""
+                    up["summary_retry_count"] = 0
+                    up["summary_retry_at"] = 0
+                    return
+
+        await self._store.mutate(_mutate)
+
+    async def update_summary_retry(
+        self, origin: str, mid: str, bvid: str, count: int, retry_at: float
+    ) -> None:
+        def _mutate(data: dict[str, Any]) -> None:
+            entry = data.get("subscriptions", {}).get(origin) or {}
+            for up in entry.get("up_list", []):
+                if up.get("mid") == mid:
+                    up["pending_summary_bvid"] = bvid
+                    up["summary_retry_count"] = count
+                    up["summary_retry_at"] = retry_at
                     return
 
         await self._store.mutate(_mutate)

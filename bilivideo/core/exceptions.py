@@ -17,16 +17,19 @@ class BiliVideoError(Exception):
     string representation when not provided.
     """
 
-    def __init__(self, message: str, *, user_message: str | None = None) -> None:
+    def __init__(
+        self, message: str, *, user_message: str | None = None, retryable: bool = False
+    ) -> None:
         super().__init__(message)
         self.user_message = user_message or message
+        self.retryable = retryable
 
 
 class NetworkError(BiliVideoError):
     """Generic network failure (DNS, timeout, connection reset, etc.)."""
 
     def __init__(self, message: str = "网络请求失败") -> None:
-        super().__init__(message, user_message="❌ 网络连接失败,请检查网络后重试")
+        super().__init__(message, user_message="❌ 网络连接失败,请检查网络后重试", retryable=True)
 
 
 class BilibiliAPIError(BiliVideoError):
@@ -70,10 +73,13 @@ class NotLoggedInError(BiliVideoError):
 class DownloadError(BiliVideoError):
     """音频/视频下载失败。"""
 
-    def __init__(self, message: str, *, user_message: str | None = None) -> None:
+    def __init__(
+        self, message: str, *, user_message: str | None = None, retryable: bool = False
+    ) -> None:
         super().__init__(
             message,
-            user_message=user_message or "❌ 视频音频下载失败,可能是版权限制或视频已删除",
+            user_message=user_message or "❌ 视频音频下载失败，请稍后重试；具体原因请查看机器人日志",
+            retryable=retryable,
         )
 
 

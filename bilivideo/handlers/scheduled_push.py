@@ -26,6 +26,7 @@ except Exception:
 
 
 _SUMMARY_RETRY_DELAYS = (5, 10, 15)
+_SUMMARY_RECOVERY_DELAYS = (300, 900, 3600)
 
 
 async def push_callback(
@@ -35,6 +36,10 @@ async def push_callback(
 ) -> int:
     if services.astrbot_context is None:
         services.logger.error("push_callback: astrbot_context is None; cannot deliver push")
+        return 0
+
+    get_platform = getattr(services.astrbot_context, "get_platform_inst", None)
+    if callable(get_platform) and get_platform(origin.split(":", 1)[0]) is None:
         return 0
 
     # ================= 订阅类型守卫（仅视频） =================
@@ -77,8 +82,37 @@ async def push_callback(
         await services.subscription_manager.update_last_video(origin, sub.mid, latest.bvid)
         return 0
 
+    # shortcut: retain one pending summary per UP; use a queue if older uploads must survive newer ones.
+    recovering = sub.auto_summary and sub.pending_summary_bvid == latest.bvid
+    if recovering and (
+        sub.summary_retry_count > len(_SUMMARY_RECOVERY_DELAYS)
+        or time.time() < sub.summary_retry_at
+    ):
+        return 0
+
     services.logger.info(f"new video for {sub.name}: {latest.title}")
-    chain_components = await _build_chain(services, origin, sub, latest)
+    retry_state: tuple[int, float] | None = None
+    try:
+        chain_components = await _build_chain(services, origin, sub, latest)
+    except BiliVideoError as exc:
+        if recovering or exc.retryable:
+            count = sub.summary_retry_count + 1 if recovering else 1
+            retry_at = (
+                time.time() + _SUMMARY_RECOVERY_DELAYS[count - 1]
+                if count <= len(_SUMMARY_RECOVERY_DELAYS) else 0
+            )
+            retry_state = count, retry_at
+            if recovering:
+                await services.subscription_manager.update_summary_retry(
+                    origin, sub.mid, latest.bvid, count, retry_at
+                )
+                return 0
+        retry_hint = "\n稍后将自动尝试补总结，失败通知不再重复发送。" if retry_state else ""
+        chain_components = [Plain(
+            f"🔔 UP主【{sub.name}】发布了新视频!\n{exc.user_message}\n"
+            f"（已自动重试 {len(_SUMMARY_RETRY_DELAYS)} 次，仍未成功）"
+            f"{retry_hint}\n🔗 https://www.bilibili.com/video/{latest.bvid}"
+        )]
     if not chain_components:
         services.logger.warning(f"empty push chain for {sub.name}; will retry on next check")
         return 0
@@ -104,6 +138,11 @@ async def push_callback(
             services.logger.error(f"push to {target} failed: {exc}")
 
     if sent_count > 0:
+        if retry_state is not None:
+            await services.subscription_manager.update_summary_retry(
+                origin, sub.mid, latest.bvid, *retry_state
+            )
+            return 0
         # Mark the video only after a delivery succeeds.  Otherwise a temporary
         # rendering, LLM, or adapter failure would permanently swallow it.
         await services.subscription_manager.update_last_video(origin, sub.mid, latest.bvid)
@@ -173,12 +212,7 @@ async def _build_chain(
         except BiliVideoError as exc:
             if attempt == len(_SUMMARY_RETRY_DELAYS):
                 services.logger.warning(f"subscription summary retries exhausted for {bvid}: {exc}")
-                return [
-                    Plain(
-                        f"{push_header}{exc.user_message}\n"
-                        f"（已自动重试 {attempt} 次，仍未成功）\n🔗 {video_url}"
-                    )
-                ]
+                raise
             delay = _SUMMARY_RETRY_DELAYS[attempt]
             services.logger.warning(
                 f"subscription summary failed for {bvid}; "

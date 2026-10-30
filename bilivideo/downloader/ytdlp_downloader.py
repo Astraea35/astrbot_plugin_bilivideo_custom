@@ -12,8 +12,8 @@ import json
 import os
 import re
 import shutil
+import time
 from collections.abc import Iterable, Mapping
-from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 
@@ -28,18 +28,18 @@ from ..parsing.url_extractor import detect_platform
 logger = get_logger("BiliVideo/Download")
 
 
-@lru_cache(maxsize=1)
 def _ffmpeg_location() -> str | None:
     """Resolve an ffmpeg binary for yt-dlp's audio postprocessor.
 
     Prefer a system ffmpeg (respect the host/container setup); when none is
     on PATH, fall back to the static binary shipped by ``imageio-ffmpeg`` so
     audio extraction works on a bare VPS with no ``apt install ffmpeg``.
-    Returns ``None`` to let yt-dlp search PATH itself.
+    Return an explicit location so yt-dlp does not retain a stale PATH result.
     """
 
-    if shutil.which("ffmpeg") or shutil.which("ffmpeg.exe"):
-        return None
+    system_ffmpeg = shutil.which("ffmpeg") or shutil.which("ffmpeg.exe")
+    if system_ffmpeg:
+        return str(Path(system_ffmpeg).parent)
     try:
         import imageio_ffmpeg
 
@@ -150,6 +150,8 @@ class YtDlpDownloader:
             "quiet": True,
             "no_warnings": True,
             "socket_timeout": YTDLP_SOCKET_TIMEOUT_SECONDS,
+            "retries": 2,
+            "fragment_retries": 2,
         }
         cookiefile = self._cookiefile_for(video_url)
         if cookiefile:
@@ -160,8 +162,7 @@ class YtDlpDownloader:
             opts["ffmpeg_location"] = ffmpeg_path
 
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(video_url, download=True)
+            info = _extract_info_with_retry(video_url, opts)
         except yt_dlp.utils.DownloadError as exc:
             raise _wrap_download_error(exc, video_url) from exc
 
@@ -205,8 +206,7 @@ class YtDlpDownloader:
             opts["cookiefile"] = cookiefile
 
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(video_url, download=True)
+            info = _extract_info_with_retry(video_url, opts)
         except yt_dlp.utils.DownloadError as exc:
             logger.warning(f"subtitle download failed: {exc}")
             return None
@@ -230,6 +230,32 @@ class YtDlpDownloader:
 # ──────────────────────────── helpers ──────────────────────────────
 
 
+def _is_transient_download_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    if any(token in message for token in ("certificate_verify_failed", "ffprobe", "ffmpeg", "postprocessing:")):
+        return False
+    return any(token in message for token in (
+        "unexpected_eof", "eof occurred in violation", "connection reset",
+        "connectionreseterror", "connection aborted", "remote end closed connection",
+        "connection closed abruptly", "ssl_error_syscall", "timed out",
+    ))
+
+
+def _extract_info_with_retry(video_url: str, opts: dict) -> dict:
+    # yt-dlp's transfer retries do not cover the initial webpage TLS handshake.
+    for attempt in range(3):
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                return ydl.extract_info(video_url, download=True)
+        except yt_dlp.utils.DownloadError as exc:
+            message = str(exc).lower()
+            extracting = "unable to download webpage" in message or "unable to download json metadata" in message
+            if attempt == 2 or not extracting or not _is_transient_download_error(exc):
+                raise
+            logger.warning(f"transient download connection failure; retry {attempt + 1}/2 in {attempt + 1}s")
+            time.sleep(attempt + 1)
+
+
 _YT_BOT_CHECK_SIGNS: tuple[str, ...] = (
     "sign in to confirm",
     "confirm you're not a bot",
@@ -246,6 +272,15 @@ def _wrap_download_error(exc: Exception, video_url: str) -> DownloadError:
     """
 
     message = str(exc)
+    lowered = message.lower()
+    if any(token in lowered for token in ("ffprobe", "ffmpeg", "postprocessing:")):
+        return DownloadError(message, user_message="❌ 音频转换失败，请检查 FFmpeg/ffprobe 是否可用；更新工具后需重启机器人")
+    if _is_transient_download_error(exc) or any(token in lowered for token in ("ssl:", "connectionreseterror", "connection reset", "connection aborted", "timed out")):
+        return DownloadError(
+            message,
+            user_message="❌ 视频下载连接中断或超时，请稍后重试并检查网络连接",
+            retryable=_is_transient_download_error(exc),
+        )
     if detect_platform(video_url) == "youtube" and any(
         sign in message.lower() for sign in _YT_BOT_CHECK_SIGNS
     ):

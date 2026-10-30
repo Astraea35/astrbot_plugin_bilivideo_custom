@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, call
 import pytest
 
 from bilivideo.core.config import PluginConfig
-from bilivideo.core.exceptions import BiliVideoError
+from bilivideo.core.exceptions import BiliVideoError, DownloadError
 from bilivideo.core.types import LatestVideo
 from bilivideo.handlers import scheduled_push
 from bilivideo.subscription.manager import Subscription, SubscriptionManager
@@ -217,3 +217,98 @@ async def test_reminder_only_subscription_skips_summary_retries(summary_push):
     render.assert_not_awaited()
     assert len(context.sent) == 1
     assert "https://www.bilibili.com/video/BVnew" in context.sent[0][1].chain[0].text
+
+
+@pytest.mark.asyncio
+async def test_network_failure_is_persisted_then_recovers_without_duplicate_notice(summary_push, monkeypatch):
+    services, sub, context, sleep, render, note = summary_push
+    monkeypatch.setattr(scheduled_push.time, "time", lambda: 1000)
+    services.orchestrator.generate.side_effect = DownloadError("TLS EOF", retryable=True)
+    assert await scheduled_push.push_callback(services, "origin", sub) == 0
+    sub = await services.subscription_manager.get_subscription("origin", "42")
+    assert sub.last_bvid == "BVold"
+    assert sub.pending_summary_bvid == "BVnew"
+    assert sub.summary_retry_count == 1
+    assert sub.summary_retry_at == 1300
+    assert len(context.sent) == 1
+    assert "稍后" in context.sent[0][1].chain[0].text
+    services.orchestrator.generate.reset_mock()
+    assert await scheduled_push.push_callback(services, "origin", sub) == 0
+    services.orchestrator.generate.assert_not_awaited()
+
+    # A new manager simulates plugin reload; recovery must survive it.
+    restored = SubscriptionManager(str(services.subscription_manager._store._path.parent))
+    services.subscription_manager = restored
+    sub = await restored.get_subscription("origin", "42")
+    monkeypatch.setattr(scheduled_push.time, "time", lambda: 1300)
+    services.orchestrator.generate.side_effect = None
+    services.orchestrator.generate.return_value = note
+    assert await scheduled_push.push_callback(services, "origin", sub) == 1
+    assert len(context.sent) == 2
+    assert note.markdown in context.sent[-1][1].chain[0].text
+    stored = await restored.get_subscription("origin", "42")
+    assert stored.last_bvid == "BVnew"
+    assert stored.pending_summary_bvid == ""
+    assert stored.summary_retry_count == 0
+
+
+@pytest.mark.asyncio
+async def test_network_recovery_has_three_delayed_rounds_and_only_one_error_notice(summary_push, monkeypatch):
+    services, sub, context, sleep, render, note = summary_push
+    clock = [1000]
+    monkeypatch.setattr(scheduled_push.time, "time", lambda: clock[0])
+    services.orchestrator.generate.side_effect = DownloadError("TLS EOF", retryable=True)
+    await scheduled_push.push_callback(services, "origin", sub)
+    for count, deadline in [(1, 1300), (2, 2200), (3, 5800)]:
+        sub = await services.subscription_manager.get_subscription("origin", "42")
+        assert sub.summary_retry_count == count
+        assert sub.summary_retry_at == deadline
+        clock[0] = deadline
+        # The fixture's immediate-backoff check expects no messages yet.
+        sleep.side_effect = None
+        assert await scheduled_push.push_callback(services, "origin", sub) == 0
+        assert len(context.sent) == 1
+    sub = await services.subscription_manager.get_subscription("origin", "42")
+    assert sub.summary_retry_count == 4
+    assert sub.last_bvid == "BVold"
+    before = services.orchestrator.generate.await_count
+    clock[0] = 999999
+    assert await scheduled_push.push_callback(services, "origin", sub) == 0
+    assert services.orchestrator.generate.await_count == before
+
+
+@pytest.mark.asyncio
+async def test_failed_error_notification_does_not_arm_recovery_or_mark_sent(summary_push):
+    services, sub, context, sleep, render, note = summary_push
+    services.orchestrator.generate.side_effect = DownloadError("TLS EOF", retryable=True)
+    context.fail = True
+    assert await scheduled_push.push_callback(services, "origin", sub) == 0
+    stored = await services.subscription_manager.get_subscription("origin", "42")
+    assert stored.last_bvid == "BVold"
+    assert stored.pending_summary_bvid == ""
+
+
+@pytest.mark.asyncio
+async def test_newer_upload_is_not_blocked_by_previous_summary_backoff(summary_push, monkeypatch):
+    services, sub, context, sleep, render, note = summary_push
+    await services.subscription_manager.update_summary_retry("origin", "42", "BVfailed", 1, 999999)
+    sub = await services.subscription_manager.get_subscription("origin", "42")
+    services.orchestrator.generate.return_value = note
+    assert await scheduled_push.push_callback(services, "origin", sub) == 1
+    stored = await services.subscription_manager.get_subscription("origin", "42")
+    assert stored.last_bvid == "BVnew"
+    assert stored.pending_summary_bvid == ""
+
+
+@pytest.mark.asyncio
+async def test_missing_platform_skips_queries_summary_and_delivery(summary_push, monkeypatch):
+    services, sub, context, sleep, render, note = summary_push
+    context.get_platform_inst = lambda _name: None
+    latest = AsyncMock()
+    monkeypatch.setattr(scheduled_push, "get_latest_videos", latest)
+    assert await scheduled_push.push_callback(services, "origin", sub) == 0
+    latest.assert_not_awaited()
+    services.orchestrator.generate.assert_not_awaited()
+    assert context.sent == []
+    stored = await services.subscription_manager.get_subscription("origin", "42")
+    assert stored.last_bvid == "BVold"
