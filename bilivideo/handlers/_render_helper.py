@@ -27,6 +27,7 @@ from ..messaging.forward import _format_meta_lines
 
 # 从 render 目录载入已更新的本地降级渲染模块
 from ..render.pillow_renderer import draw_subscription_image
+from ..render.image_format import image_extension, normalize_image_format
 
 logger = get_logger("BiliVideo/RenderHelper")
 
@@ -459,7 +460,13 @@ async def render_subscription_components(services: BiliVideoServices, subs: list
     # 2. direct 模式（Pillow）或降级
     cache_dir = Path("data/bili_video_cache")
     cache_dir.mkdir(parents=True, exist_ok=True)
-    file_path = cache_dir / f"subs_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}.png"
+    image_format = normalize_image_format(
+        getattr(services.config, "image_output_format", "webp")
+    )
+    file_path = cache_dir / (
+        f"subs_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+        f"{image_extension(image_format)}"
+    )
 
     try:
         draw_subscription_image(services, subs, file_path)

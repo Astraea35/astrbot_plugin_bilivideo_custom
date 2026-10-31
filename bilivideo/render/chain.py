@@ -43,7 +43,14 @@ def _wkhtmltoimage_path() -> str | None:
 class RenderChain:
     """Try each available backend until one produces output."""
 
-    def __init__(self, *, output_dir: str | Path, image_width: int = 1400) -> None:
+    def __init__(
+        self,
+        *,
+        output_dir: str | Path,
+        image_width: int = 1400,
+        image_output_format: str = "png",
+        image_quality: int = 95,
+    ) -> None:
         self._backends: list[tuple[str, _Renderer]] = []
         self._diagnostics: dict[str, str] = {}
 
@@ -63,7 +70,15 @@ class RenderChain:
         self._diagnostics["pillow"] = ("ready " if pillow_ready else "unavailable: ") + pillow_reason
         if pillow_ready:
             self._backends.append(
-                ("pillow", PillowRenderer(output_dir=output_dir, image_width=image_width))
+                (
+                    "pillow",
+                    PillowRenderer(
+                        output_dir=output_dir,
+                        image_width=image_width,
+                        image_output_format=image_output_format,
+                        image_quality=image_quality,
+                    ),
+                )
             )
         else:
             logger.warning(f"Pillow renderer unavailable: {pillow_reason}")

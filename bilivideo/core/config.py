@@ -189,8 +189,8 @@ class PluginConfig:
     max_cards_per_image: int = 6
     image_width: int = 1400
     image_scale_factor: int = 2
-    image_output_format: str = "png"
-    image_quality: int = 100
+    image_output_format: str = "webp"
+    image_quality: int = 95
     image_font_size: int = 32
     custom_font_path: str = ""
 
@@ -326,9 +326,9 @@ class PluginConfig:
             image_width=_coerce_int(flat.get("image_width"), 1400, lo=800, hi=2400),
             image_scale_factor=_coerce_int(flat.get("image_scale_factor"), 2, lo=1, hi=4),
             image_output_format=_coerce_str(
-                flat.get("image_output_format"), "png", options=("png", "jpg", "webp")
+                flat.get("image_output_format"), "webp", options=("png", "jpg", "webp")
             ),
-            image_quality=_coerce_int(flat.get("image_quality"), 100, lo=1, hi=100),
+            image_quality=_coerce_int(flat.get("image_quality"), 95, lo=1, hi=100),
             image_font_size=_coerce_int(flat.get("image_font_size"), 32, lo=16, hi=64),
             custom_font_path=_coerce_str(flat.get("custom_font_path"), ""),
             enable_forward_message=_coerce_bool(flat.get("enable_forward_message"), False),

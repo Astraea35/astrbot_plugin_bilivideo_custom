@@ -11,6 +11,7 @@ from pathlib import Path
 from ..core.exceptions import PartialRenderError, RenderError
 from ..core.logging import get_logger
 from .pagination import split_by_chapters
+from .image_format import image_extension, normalize_image_format, transcode_image
 from .templates import (
     build_full_html,
     extract_title,
@@ -75,7 +76,7 @@ class WkHtmlRenderer:
         outputs, failed_pages, page_errors = [], [], {}
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for idx, page_md in enumerate(pages, 1):
-            destination = self._output_dir / f"{base_filename}_p{idx}.png"
+            destination = self._output_dir / f"{base_filename}_p{idx}{self._output_extension()}"
             try:
                 paths = await self._render_html_to_png(
                     page_md, destination,
@@ -102,7 +103,7 @@ class WkHtmlRenderer:
         return outputs
 
     async def _render_single(self, markdown_text: str, base_filename: str) -> list[Path]:
-        destination = self._output_dir / f"{base_filename}.png"
+        destination = self._output_dir / f"{base_filename}{self._output_extension()}"
         return await self._render_html_to_png(
             markdown_text, destination, footer_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
@@ -124,13 +125,13 @@ class WkHtmlRenderer:
         html_body = wrap_chapters_in_cards(html_body)
 
         # 从 PluginConfig 读取渲染参数（现在所有字段均已定义）
-        theme, img_width, img_fmt, img_quality, scale = "light", self._image_width, "png", 100, 2
+        theme, img_width, img_fmt, img_quality, scale = "light", self._image_width, "png", 95, 2
         base_font_size = 32
         if self._services and hasattr(self._services, "config"):
             cfg = self._services.config
             theme = str(getattr(cfg, "theme", theme)).lower()
             img_width = int(getattr(cfg, "image_width", img_width))
-            img_fmt = str(getattr(cfg, "image_output_format", img_fmt)).lower()
+            img_fmt = normalize_image_format(getattr(cfg, "image_output_format", img_fmt))
             img_quality = int(getattr(cfg, "image_quality", img_quality))
             scale = int(getattr(cfg, "image_scale_factor", scale))
             base_font_size = int(getattr(cfg, "image_font_size", base_font_size))
@@ -165,7 +166,7 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
                     page = await browser.new_page(device_scale_factor=scale, viewport={"width": img_width, "height": 100})
                     await page.set_content(full_html, wait_until="networkidle")
                     await page.wait_for_timeout(1000)
-                    save_fmt = "jpeg" if img_fmt in ("jpg", "jpeg", "webp") else "png"
+                    save_fmt = "jpeg" if img_fmt == "jpg" else "png"
                     height = await page.evaluate("Math.ceil(document.documentElement.scrollHeight)")
                     breaks = await page.locator("p, li, pre, tr, h1, h2, h3").evaluate_all(
                         "els => els.map(el => Math.ceil(el.getBoundingClientRect().bottom + window.scrollY))"
@@ -179,13 +180,32 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
                         target = destination if len(regions) == 1 else destination.with_name(
                             f"{destination.stem}_s{idx}{destination.suffix}"
                         )
-                        await page.screenshot(
-                            path=str(target),
-                            clip={"x": 0, "y": top, "width": img_width, "height": clip_height},
-                            type="jpeg" if save_fmt == "jpeg" else "png",
-                            quality=img_quality if save_fmt == "jpeg" else None,
-                            full_page=True,
-                        )
+                        screenshot_args = {
+                            "clip": {"x": 0, "y": top, "width": img_width, "height": clip_height},
+                            "full_page": True,
+                        }
+                        if img_fmt == "webp":
+                            try:
+                                await page.screenshot(
+                                    path=str(target), type="webp", quality=img_quality, **screenshot_args
+                                )
+                            except Exception as direct_webp_error:
+                                logger.debug(
+                                    f"Playwright 直接 WebP 截图不可用，回退 Pillow 转码: {direct_webp_error}"
+                                )
+                                temp_png = target.with_name(f"{target.stem}.tmp.png")
+                                try:
+                                    await page.screenshot(path=str(temp_png), type="png", **screenshot_args)
+                                    transcode_image(temp_png, target, "webp", img_quality)
+                                finally:
+                                    temp_png.unlink(missing_ok=True)
+                        else:
+                            await page.screenshot(
+                                path=str(target),
+                                type=save_fmt,
+                                quality=img_quality if save_fmt == "jpeg" else None,
+                                **screenshot_args,
+                            )
                         outputs.append(target)
                     await page.close()
                     await browser.close()
@@ -211,6 +231,13 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
         )
         return outputs
 
+    def _output_format(self) -> str:
+        configured = getattr(getattr(self._services, "config", None), "image_output_format", "png")
+        return normalize_image_format(configured)
+
+    def _output_extension(self) -> str:
+        return image_extension(self._output_format())
+
     def _get_current_model(self) -> str:
         llm = getattr(self._services, "llm", None) if self._services else None
         if llm:
@@ -226,7 +253,7 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
     def _cleanup_old_cache(self) -> None:
         try:
             now = time.time()
-            for pattern in ("*.png", "*.jpg", "*.jpeg"):
+            for pattern in ("*.png", "*.jpg", "*.jpeg", "*.webp", "*.tmp.png"):
                 for file in self._output_dir.glob(pattern):
                     if file.is_file() and now - file.stat().st_mtime > 86400:
                         file.unlink(missing_ok=True)

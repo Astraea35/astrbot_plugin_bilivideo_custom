@@ -14,6 +14,7 @@ from jinja2 import Environment, FileSystemLoader
 from ..core.constants import CARD_TEMPLATES, DEFAULT_TEMPLATE, get_template_path
 from ..core.logging import get_logger
 from ..core.models import RenderPayload
+from ..render.image_format import image_extension, normalize_image_format, transcode_image
 
 logger = get_logger("BiliVideo/DynamicRenderer")
 
@@ -81,7 +82,15 @@ class DynamicCardRenderer:
 
         cache_dir = Path("data/bili_video_cache").resolve()
         cache_dir.mkdir(parents=True, exist_ok=True)
-        output_file = cache_dir / f"dyn_{payload.uid or '0'}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:4]}.png"
+        image_format = normalize_image_format(
+            getattr(self.services.config, "image_output_format", "webp")
+        )
+        image_quality = int(getattr(self.services.config, "image_quality", 95))
+        output_file = cache_dir / (
+            f"dyn_{payload.uid or '0'}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:4]}"
+            f"{image_extension(image_format)}"
+        )
+        temp_file = None
 
         try:
             from playwright.async_api import async_playwright
@@ -91,14 +100,37 @@ class DynamicCardRenderer:
                 page = await browser.new_page(viewport={"width": 680, "height": 100}, device_scale_factor=2)
                 await page.set_content(html_content, wait_until="networkidle")
                 await page.wait_for_timeout(300)
-                await page.screenshot(path=str(output_file), full_page=True)
+                if image_format == "webp":
+                    try:
+                        await page.screenshot(
+                            path=str(output_file), full_page=True, type="webp", quality=image_quality
+                        )
+                    except Exception as direct_webp_error:
+                        logger.debug(
+                            f"Playwright 直接 WebP 截图不可用，回退 Pillow 转码: {direct_webp_error}"
+                        )
+                        temp_file = output_file.with_name(f"{output_file.stem}.tmp.png")
+                        await page.screenshot(path=str(temp_file), full_page=True, type="png")
+                        transcode_image(temp_file, output_file, "webp", image_quality)
+                else:
+                    await page.screenshot(
+                        path=str(output_file),
+                        full_page=True,
+                        type="jpeg" if image_format == "jpg" else "png",
+                        quality=image_quality if image_format == "jpg" else None,
+                    )
                 await page.close()
                 await browser.close()
+            if temp_file is not None:
+                transcode_image(temp_file, output_file, "webp", image_quality)
 
             if output_file.exists() and output_file.stat().st_size > 0:
                 logger.info(f"动态卡片图片渲染成功: {output_file.name}")
                 return str(output_file)
         except Exception as e:
             logger.error(f"Playwright 动态长图渲染失败: {e}", exc_info=True)
+        finally:
+            if temp_file is not None:
+                temp_file.unlink(missing_ok=True)
 
         return None

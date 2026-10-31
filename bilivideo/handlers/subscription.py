@@ -27,6 +27,7 @@ from ._utils import parse_command_args, parse_sub_args, resolve_subscription_ind
 
 # 新增导入 Pillow 绘图函数和消息组件
 from ..render.pillow_renderer import draw_subscription_image
+from ..render.image_format import image_extension, normalize_image_format
 try:
     from astrbot.api.message_components import Image
 except ImportError:
@@ -346,7 +347,10 @@ async def handle_list_subscriptions(services: BiliVideoServices, event: object) 
             timestamp = int(time.time())
             img_dir = Path(services.data_dir) / "images"
             img_dir.mkdir(parents=True, exist_ok=True)
-            img_path = img_dir / f"sub_list_{timestamp}.png"
+            image_format = normalize_image_format(
+                getattr(services.config, "image_output_format", "webp")
+            )
+            img_path = img_dir / f"sub_list_{timestamp}{image_extension(image_format)}"
 
             draw_subscription_image(services, subs, img_path)
 

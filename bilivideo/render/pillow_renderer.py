@@ -248,15 +248,25 @@ class PillowRenderer:
     PADDING = 40
     CARD_PADDING = 26
     CARD_GAP = 22
+    BLOCK_GAP = 10
     STRIPE_W = 6
     BULLET_INDENT = 24
     SUBSECTION_INDENT = 16
     FOOTER_H = 56
 
-    def __init__(self, *, output_dir: str | Path, image_width: int = 1400) -> None:
+    def __init__(
+        self,
+        *,
+        output_dir: str | Path,
+        image_width: int = 1400,
+        image_output_format: str = "png",
+        image_quality: int = 95,
+    ) -> None:
         self._output_dir = Path(output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
         self._width = image_width
+        self._image_output_format = normalize_image_format(image_output_format)
+        self._image_quality = max(1, min(100, int(image_quality)))
 
     # ------------------------------------------------------------------
     # public API
@@ -487,9 +497,9 @@ class PillowRenderer:
             footer_text += f" · {page_label}"
         draw.text((self.PADDING, total_h - 32), footer_text, fill=self.DIM_FG, font=f_body)
 
-        out = self._output_dir / f"{base_filename}.png"
+        out = self._output_dir / f"{base_filename}{image_extension(self._image_output_format)}"
         try:
-            img.save(out, "PNG", optimize=True)
+            save_pillow_image(img, out, self._image_output_format, self._image_quality)
         except OSError as exc:
             raise RenderError(f"Pillow save failed: {exc}") from exc
         logger.info(f"pillow rendered {out.name} ({out.stat().st_size} bytes)")
@@ -591,6 +601,8 @@ class PillowRenderer:
 # ════════════════════════════════════════════════════════════════
 
 from PIL import Image as PILImage, ImageDraw, ImageFont
+
+from .image_format import image_extension, normalize_image_format, save_pillow_image
 
 
 def draw_subscription_image(services: 'BiliVideoServices', subs: list, output_path: Path):
@@ -804,7 +816,10 @@ def draw_subscription_image(services: 'BiliVideoServices', subs: list, output_pa
     # =========================================
 
     # 最后保存延伸后的完整图片
-    extended_img.save(output_path, format="PNG")
+    image_format = normalize_image_format(getattr(services.config, "image_output_format", "png"))
+    quality = int(getattr(services.config, "image_quality", 95))
+    output_path = Path(output_path).with_suffix(image_extension(image_format))
+    save_pillow_image(extended_img, output_path, image_format, quality)
     logger.info(f"订阅列表图片已保存至 {output_path}")
 
 
