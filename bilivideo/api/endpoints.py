@@ -17,7 +17,7 @@ from ..core.constants import (
     ENDPOINT_SEARCH_TYPE,
     ENDPOINT_SEARCH_TYPE_WBI,
     ENDPOINT_POPULAR,
-    ENDPOINT_PLAYER_V2,
+    ENDPOINT_PLAYER_WBI_V2,
     ENDPOINT_REPLY,
     ENDPOINT_USER_INFO,
     ENDPOINT_USER_VIDEOS,
@@ -172,8 +172,13 @@ async def get_bilibili_ai_subtitle(
         if not cid:
             return None
         video_duration = float(view_data.get("duration", 0) or 0) if isinstance(view_data, Mapping) else 0.0
+        params = await sign_params({"bvid": bvid, "cid": int(cid)}, cookies=client.cookies)
+        if "w_rid" not in params:
+            logger.info(f"Bilibili AI subtitle lookup skipped for {bvid}: WBI signing unavailable")
+            return None
+        # The legacy unsigned endpoint can return another video's subtitle URL.
         player = await client.request_json(
-            "GET", ENDPOINT_PLAYER_V2, params={"bvid": bvid, "cid": int(cid)}
+            "GET", ENDPOINT_PLAYER_WBI_V2, params=params
         )
     except (BiliVideoError, ValueError, TypeError) as exc:
         logger.info(f"Bilibili AI subtitle lookup unavailable for {bvid}: {exc}")

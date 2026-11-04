@@ -260,7 +260,7 @@ async def test_kimi_parenting_subtitle_or_cache_is_replaced_with_audio(monkeypat
     info = VideoInfo(bvid="BV17BHA68Egy", title=KIMI_TITLE, owner_name="橘鸦Juya")
     _patch_get_video_info(monkeypatch, info)
     audio = AudioDownloadResult("/tmp/kimi.mp3", KIMI_TITLE, 350, None, "bilibili", info.bvid)
-    note = f"# {KIMI_TITLE}\n\n{TECH}"
+    note = f"# {KIMI_TITLE} - {info.owner_name}\n\n{TECH}"
 
     class _KimiPipeline(_StubPipeline):
         async def fetch(self, video_url, **kwargs):
@@ -329,6 +329,85 @@ async def test_rejected_subtitle_is_not_retained_when_asr_fails(monkeypatch, fai
     assert await orch._cache.get(info.bvid) is None
     if failure == "wrong_audio":
         assert pipeline.cleanup_calls == [audio]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cached_at", ["none", "memory", "disk"])
+async def test_apple_leech_subtitle_and_disclaimed_cache_are_replaced(monkeypatch, tmp_path, cached_at):
+    from bilivideo.summarize.orchestrator import NoteResult
+    from tests.test_summary_relevance import APPLE_TEXT, APPLE_TITLE, LEECH_NOTE, LEECH_TEXT
+
+    info = VideoInfo(bvid="BV1ooxS6qE42", title=APPLE_TITLE, owner_name="许骏马")
+    _patch_get_video_info(monkeypatch, info)
+    audio = AudioDownloadResult("/tmp/apple.mp3", APPLE_TITLE, 431, None, "bilibili", info.bvid)
+    note = f"# {APPLE_TITLE} - {info.owner_name}\n\n## 苹果智能体验\n{APPLE_TEXT}"
+
+    class _RefreshingPipeline(_StubPipeline):
+        async def fetch(self, video_url, **kwargs):
+            self.fetch_calls += 1
+            if kwargs.get("force_asr"):
+                return PipelineOutput(_transcript(APPLE_TEXT), audio)
+            return self.output
+
+    pipeline = _RefreshingPipeline(PipelineOutput(_transcript(LEECH_TEXT), None))
+    llm = _StubLLM(note)
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm, pipeline=pipeline,
+        http_client=_StubHTTP(), data_dir=str(tmp_path),
+    )
+    if cached_at != "none":
+        wrong = NoteResult(LEECH_NOTE, info, True)
+        await orch._set_persistent_cache(info.bvid, wrong)
+        if cached_at == "memory":
+            await orch._cache.set(info.bvid, wrong)
+
+    result = await orch.generate(info.url)
+    assert result.markdown == note
+    assert not result.used_subtitle
+    assert pipeline.fetch_calls == 2
+    assert len(llm.calls) == 1
+    assert LEECH_TEXT not in llm.calls[0]
+    assert APPLE_TEXT in llm.calls[0]
+    assert pipeline.cleanup_calls == [audio]
+    assert (await orch._persistent_cache.read())["entries"][info.bvid]["markdown"] == note
+
+
+@pytest.mark.asyncio
+async def test_summary_header_uses_video_metadata(monkeypatch):
+    from tests.test_summary_relevance import APPLE_TEXT, APPLE_TITLE
+
+    info = VideoInfo(bvid="BV1ooxS6qE42", title=APPLE_TITLE, owner_name="许骏马")
+    _patch_get_video_info(monkeypatch, info)
+    body = f"\n\n## 苹果智能体验\n{APPLE_TEXT}"
+    llm = _StubLLM(f"# {APPLE_TITLE} - 群奇马{body}")
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm,
+        pipeline=_StubPipeline(PipelineOutput(_transcript(APPLE_TEXT), None)),
+        http_client=_StubHTTP(),
+    )
+    result = await orch.generate(info.url)
+    assert result.markdown == f"# {APPLE_TITLE} - 许骏马{body}"
+
+
+@pytest.mark.asyncio
+async def test_disclaimed_off_topic_llm_answer_is_not_cached(monkeypatch, tmp_path):
+    from tests.test_summary_relevance import APPLE_TEXT, APPLE_TITLE, LEECH_NOTE
+
+    info = VideoInfo(bvid="BV1ooxS6qE42", title=APPLE_TITLE)
+    _patch_get_video_info(monkeypatch, info)
+    audio = AudioDownloadResult("/tmp/apple.mp3", APPLE_TITLE, 431, None, "bilibili", info.bvid)
+    pipeline = _StubPipeline(PipelineOutput(_transcript(APPLE_TEXT), audio))
+    llm = _StubLLM(LEECH_NOTE)
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({}), llm=llm, pipeline=pipeline,
+        http_client=_StubHTTP(), data_dir=str(tmp_path),
+    )
+
+    with pytest.raises(BiliVideoError, match="summary does not match"):
+        await orch.generate(info.url)
+    assert len(llm.calls) == 4
+    assert await orch._cache.get(info.bvid) is None
+    assert info.bvid not in (await orch._persistent_cache.read())["entries"]
 
 
 # ──────────────────────── tests ────────────────────────

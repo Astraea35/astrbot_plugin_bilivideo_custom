@@ -5,9 +5,17 @@ from __future__ import annotations
 import pytest
 
 from bilivideo.api.endpoints import get_bilibili_ai_subtitle
-from bilivideo.core.constants import ENDPOINT_PLAYER_V2, ENDPOINT_VIEW
+from bilivideo.core.constants import ENDPOINT_PLAYER_WBI_V2, ENDPOINT_VIEW
 from bilivideo.core.types import TranscriptResult, TranscriptSegment
 from bilivideo.transcription.pipeline import TranscriptPipeline
+
+
+@pytest.fixture(autouse=True)
+def _stub_wbi_signing(monkeypatch):
+    async def sign(params, **_kwargs):
+        return {**params, "wts": 123, "w_rid": "test-signature"}
+
+    monkeypatch.setattr("bilivideo.api.endpoints.sign_params", sign)
 
 
 class _StubHTTP:
@@ -19,7 +27,7 @@ class _StubHTTP:
         self.calls.append((url, dict(params) if params else None))
         if url == ENDPOINT_VIEW:
             return {"code": 0, "data": {"cid": 42}}
-        if url == ENDPOINT_PLAYER_V2:
+        if url == ENDPOINT_PLAYER_WBI_V2:
             return {
                 "code": 0,
                 "data": {
@@ -68,9 +76,24 @@ async def test_ai_subtitle_is_parsed_after_selecting_trusted_ai_track() -> None:
     assert [segment.start for segment in result.segments] == [1.25, 2.5]
     assert [url for url, _ in client.calls] == [
         ENDPOINT_VIEW,
-        ENDPOINT_PLAYER_V2,
+        ENDPOINT_PLAYER_WBI_V2,
         "https://aisubtitle.hdslb.com/ai.json",
     ]
+    assert client.calls[1][1] == {
+        "bvid": "BV1xx411c7mD", "cid": 42, "wts": 123, "w_rid": "test-signature",
+    }
+
+
+@pytest.mark.asyncio
+async def test_signing_failure_does_not_fall_back_to_unsigned_player(monkeypatch):
+    async def unsigned(params, **_kwargs):
+        return dict(params)
+
+    monkeypatch.setattr("bilivideo.api.endpoints.sign_params", unsigned)
+    client = _StubHTTP()
+    result = await get_bilibili_ai_subtitle(client, "https://www.bilibili.com/video/BV1xx411c7mD")
+    assert result is None
+    assert [url for url, _ in client.calls] == [ENDPOINT_VIEW]
 
 
 class _NoSubtitleDownloader:
@@ -95,7 +118,7 @@ async def test_ai_subtitle_discarded_if_timestamps_exceed_video_duration() -> No
         async def request_json(self, method: str, url: str, *, params=None):
             if url == ENDPOINT_VIEW:
                 return {"code": 0, "data": {"cid": 42, "duration": 100}}  # 100s video
-            if url == ENDPOINT_PLAYER_V2:
+            if url == ENDPOINT_PLAYER_WBI_V2:
                 return {
                     "code": 0,
                     "data": {
@@ -130,7 +153,7 @@ async def test_ai_subtitle_discarded_if_coverage_is_too_short() -> None:
         async def request_json(self, method: str, url: str, *, params=None):
             if url == ENDPOINT_VIEW:
                 return {"code": 0, "data": {"cid": 42, "duration": 120}}  # 120s video
-            if url == ENDPOINT_PLAYER_V2:
+            if url == ENDPOINT_PLAYER_WBI_V2:
                 return {
                     "code": 0,
                     "data": {
@@ -164,7 +187,7 @@ async def test_ai_subtitle_discarded_if_starts_too_late() -> None:
         async def request_json(self, method: str, url: str, *, params=None):
             if url == ENDPOINT_VIEW:
                 return {"code": 0, "data": {"cid": 42, "duration": 100}}
-            if url == ENDPOINT_PLAYER_V2:
+            if url == ENDPOINT_PLAYER_WBI_V2:
                 return {
                     "code": 0,
                     "data": {

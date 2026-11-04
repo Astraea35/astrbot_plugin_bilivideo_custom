@@ -10,6 +10,27 @@ KIMI_TITLE = "月之暗面发布 Kimi K3.1 Pro【AI 早报 2026-10-24】"
 PARENTING = "父母与孩子的沟通应该平等，不应该把吃饭穿衣和选择专业变成服从性测试。" * 10
 LYRICS = "♪ 我的吻，厌倦我的亏欠，眼泪狂奔滴落在我的脸庞。 ♪ " * 10
 TECH = "月之暗面发布新模型，Kimi 支持代码生成和复杂任务，提供推理能力与工具调用。" * 10
+APPLE_TITLE = "惊喜or惊吓❓国行苹果智能深度体验"
+APPLE_TEXT = (
+    "中国大陆版的苹果智能终于来了，更新后需要手动开启，扩展里的千问也要打开。"
+    "国区服务大部分依赖千问，Siri 经常断线，识图与其他功能仍有局限。"
+) * 8
+LEECH_TEXT = (
+    "宽体金线蛭不吸血，主要捕食田螺，水蛭有头尾吸盘，属于环节动物。"
+    "水蛭雌雄同体、异体受精，卵茧孵出小蛭，解剖时需要去除肠道和结缔组织。"
+) * 8
+LEECH_NOTE = (
+    f"# {APPLE_TITLE} - 老郭\n\n"
+    "转录内容实际围绕水蛭（蚂蝗）的生物学、摄食、繁殖与解剖展开，"
+    "未涉及标题所指的国行苹果智能。\n\n"
+    f"## 水蛭的结构与食用部位\n{LEECH_TEXT}"
+)
+
+
+@pytest.mark.parametrize("title", [APPLE_TITLE, "国行苹果智能深度体验"])
+def test_single_long_chinese_topic_rejects_unrelated_subtitle(title):
+    assert title_conflicts_with_text(title, LEECH_TEXT)
+    assert not title_conflicts_with_text(title, APPLE_TEXT)
 
 
 @pytest.mark.parametrize("title", [KIMI_TITLE, "Kimi K3.1 Pro", "Google Gemini 3.5 Flash Lite【模型更新】"])

@@ -41,7 +41,11 @@ from ..parsing.url_extractor import extract_bvid
 from ..subscription.store import JsonStore
 from ..transcription.pipeline import PipelineOutput, TranscriptPipeline
 from .post_process import replace_timestamp_markers, smart_truncate
-from .relevance import summary_conflicts_with_transcript, title_conflicts_with_text
+from .relevance import (
+    summary_conflicts_with_title,
+    summary_conflicts_with_transcript,
+    title_conflicts_with_text,
+)
 
 logger = get_logger("BiliVideo/Summary")
 _SUMMARY_MISMATCH_MAX_RETRIES = 3
@@ -117,8 +121,8 @@ class SummaryOrchestrator:
         bvid = extract_bvid(video_url)
         if bvid:
             cached = await self._cache.get(bvid)
-            if cached is not None and cached.video_info and title_conflicts_with_text(
-                cached.video_info.title, cached.markdown.partition("\n")[2]
+            if cached is not None and cached.video_info and summary_conflicts_with_title(
+                cached.video_info.title, cached.markdown
             ):
                 logger.warning(f"discarding off-topic memory summary for {bvid}")
                 await self._cache.invalidate(bvid)
@@ -212,7 +216,7 @@ class SummaryOrchestrator:
                 if not markdown:
                     raise BiliVideoError("empty LLM output", user_message="❌ AI 返回内容为空,请重试")
                 if not (
-                    title_conflicts_with_text(title, markdown.partition("\n")[2])
+                    summary_conflicts_with_title(title, markdown)
                     or summary_conflicts_with_transcript(transcript_text, markdown)
                 ):
                     break
@@ -239,6 +243,10 @@ class SummaryOrchestrator:
                 )
                 await self._transcript_cache.set(transcript_cache_key, output)
             # With audio already transcribed, retry the LLM with the same transcript.
+
+        if info and markdown.startswith("# "):
+            _, newline, body = markdown.partition("\n")
+            markdown = f"# {info.title} - {info.owner_name}{newline}{body}"
 
         if self._config.enable_link and bvid:
             markdown = replace_timestamp_markers(markdown)
@@ -326,8 +334,8 @@ class SummaryOrchestrator:
         try:
             raw_info = entry.get("video_info")
             video_info = VideoInfo(**raw_info) if isinstance(raw_info, Mapping) else None
-            if video_info and title_conflicts_with_text(
-                video_info.title, str(entry["markdown"]).partition("\n")[2]
+            if video_info and summary_conflicts_with_title(
+                video_info.title, str(entry["markdown"])
             ):
                 logger.warning(f"discarding off-topic persistent summary for {bvid}")
                 await self._remove_persistent_cache_entry(bvid)
