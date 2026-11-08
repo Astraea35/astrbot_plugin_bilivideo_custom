@@ -38,7 +38,7 @@
       "llm_model": { "type": "string", "default": "gpt-4o-mini", "description": "模型名称", "hint": "如 gpt-4o-mini / deepseek-chat" },
       "llm_temperature": { "type": "float", "default": 0.4, "description": "Temperature", "hint": "总结任务推荐 0.2 ~ 0.6" },
       "enable_fallback": { "type": "bool", "default": false, "description": "启用故障备用重试", "hint": "开启后，当主力大模型调用报错、额度耗尽或发生超时，程序会自动调用下方的备用大模型进行二次总结重试" },
-      "backup_provider_id": { "type": "string", "default": "", "description": "选择备用 AstrBot 平台", "hint": "从下拉菜单中直接选择一个你在系统内置添加的备用大模型平台 ID（如 deepseek, qianwen 等）作为唯一的容灾兜底通道", "_special": "select_provider" },
+      "backup_provider_id": { "type": "string", "default": "", "description": "备用模型", "hint": "通过 AstrBot 原生模型选择器选择已配置的对话模型；备用调用使用该模型在 AstrBot 中的配置，不继承主模型名称。留空则不启用备用调用。", "_special": "select_provider" },
       "bangumi_token": { "type": "string", "default": "", "description": "Bangumi Access Token", "hint": "可选。调用 Bangumi API 时需要授权时填写。" }
     }
   },

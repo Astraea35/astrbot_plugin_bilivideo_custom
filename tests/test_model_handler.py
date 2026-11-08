@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
 import pytest
 
 from bilivideo.core.config import PluginConfig
@@ -37,6 +40,7 @@ class _Provider:
 class _Context:
     def __init__(self, providers: list[_Provider]) -> None:
         self._providers = providers
+        self.permission_manager = SimpleNamespace(is_admin=AsyncMock(return_value=True))
 
     def get_all_providers(self) -> list[_Provider]:
         return self._providers

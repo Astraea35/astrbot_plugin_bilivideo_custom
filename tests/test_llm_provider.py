@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, call
+
 import pytest
 
 from bilivideo.core.config import PluginConfig
@@ -18,3 +22,111 @@ async def test_openai_compatible_without_credentials_is_disabled() -> None:
     with pytest.raises(LLMError) as exc:
         await provider.chat("hello")
     assert "AI 未配置" in exc.value.user_message
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested", [False, True])
+async def test_fallback_uses_native_provider_config_without_primary_model(nested: bool) -> None:
+    llm_config = {"enable_fallback": True, "backup_provider_id": "backup"}
+    raw_config = {"llm": llm_config} if nested else llm_config
+    generate = AsyncMock(side_effect=[RuntimeError("primary unavailable"), "backup result"])
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    answer = await provider.chat(
+        "summarize",
+        session_id="session",
+        image_urls=("https://example.com/a.png",),
+        model="primary-model",
+    )
+
+    assert answer == "backup result"
+    assert generate.await_args_list == [
+        call(
+            chat_provider_id="primary",
+            prompt="summarize",
+            session_id="session",
+            image_urls=["https://example.com/a.png"],
+            model="primary-model",
+        ),
+        call(
+            chat_provider_id="backup",
+            prompt="summarize",
+            session_id="session",
+            image_urls=["https://example.com/a.png"],
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_primary_success_does_not_call_backup() -> None:
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": "backup"}}
+    generate = AsyncMock(return_value="primary result")
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    assert await provider.chat("hello") == "primary result"
+    assert generate.await_count == 1
+    assert generate.await_args.kwargs["chat_provider_id"] == "primary"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enable_fallback,backup_id", [(False, "backup"), (True, "")])
+async def test_disabled_or_unselected_backup_is_not_called(enable_fallback: bool, backup_id: str) -> None:
+    raw_config = {"llm": {"enable_fallback": enable_fallback, "backup_provider_id": backup_id}}
+    generate = AsyncMock(side_effect=RuntimeError("primary unavailable"))
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    with pytest.raises(LLMError, match="primary unavailable"):
+        await provider.chat("hello")
+
+    assert generate.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_both_native_providers_failing_preserves_errors() -> None:
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": "backup"}}
+    generate = AsyncMock(side_effect=[RuntimeError("primary unavailable"), RuntimeError("backup unavailable")])
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    with pytest.raises(LLMError) as exc:
+        await provider.chat("hello")
+
+    assert "primary unavailable" in str(exc.value)
+    assert "backup unavailable" in str(exc.value)
+    assert generate.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_cancellation_does_not_call_backup() -> None:
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": "backup"}}
+    generate = AsyncMock(side_effect=asyncio.CancelledError)
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await provider.chat("hello")
+
+    assert generate.await_count == 1

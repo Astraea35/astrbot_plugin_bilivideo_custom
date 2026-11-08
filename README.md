@@ -1,3 +1,5 @@
+v2.4.23：备用模型支持从 AstrBot 已配置的模型中直接选择，优先通过原生 `llm_generate` 调用，并使用备用模型自身配置；失效的指定模型会明确报错。控制台同步提供模型下拉列表。
+
 Telegram 的视频总结、动态文字、订阅列表和视频订阅推送默认使用 Markdown
 文字，跳过 QQ 图片排版、自动识别封面图和合并转发。动态中的原始图片仍作为媒体发送。
 TG 视频总结保留段落，附带视频标题、UP 主、时长和原视频链接；QQ 的图片排版保留原行为。
@@ -23,7 +25,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 [![AstrBot](https://img.shields.io/badge/AstrBot-v4.0%2B-blueviolet)](https://astrbot.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.4.20-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.4.23-orange)](CHANGELOG.md)
 
 </div>
 
@@ -47,6 +49,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 ### 3. 🤖 模型层：AstrBot 平台原生双模桥接
 - **免手填无缝对接**：直接调用 AstrBot 当前激活的默认模型。
 - **`astrbot_custom` 模式**：直接在管理面板下拉菜单中指名调用已添加的第三方平台 ID（如 deepseek、openai 等）。
+- **备用模型**：开启“启用故障备用重试”后，通过 AstrBot 原生模型选择器或控制台的备用模型下拉框选择已配置的对话模型。备用调用使用该模型在 AstrBot 中的配置，不继承主模型名称；已保存的 `backup_provider_id` 继续有效。修改后重载插件生效。
 
 ---
 

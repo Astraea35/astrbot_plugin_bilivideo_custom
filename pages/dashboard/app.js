@@ -13,7 +13,7 @@ const fieldGroups = {
     { key: "llm_model", label: "模型名称", type: "text" },
     { key: "llm_temperature", label: "Temperature", type: "number", step: "0.1", min: "0", max: "2" },
     { key: "enable_fallback", label: "启用故障备用重试", hint: "主模型失败时自动调用备用模型", type: "switch" },
-    { key: "backup_provider_id", label: "备用平台 ID", type: "text" },
+    { key: "backup_provider_id", label: "备用模型", hint: "选择 AstrBot 中已配置的对话模型", type: "select", options: [["", "请选择备用模型"]] },
     { key: "bangumi_token", label: "Bangumi Access Token", hint: "可选，留空保持当前令牌", type: "password", secret: true },
   ],
   aiDynamic: [
@@ -167,6 +167,18 @@ function setFieldValue(key, value) {
 
 function applyConfig(config) { Object.entries(config || {}).forEach(([key, value]) => setFieldValue(key, value)); }
 
+function updateBackupProviders(providers, selectedId) {
+  const selector = $("#field-backup_provider_id");
+  if (!selector) return;
+  selector.replaceChildren(new Option("请选择备用模型", ""));
+  for (const { id, model } of providers || []) {
+    selector.add(new Option(model ? `${id} (${model})` : id, id));
+  }
+  if (selectedId && ![...selector.options].some((option) => option.value === selectedId)) {
+    selector.add(new Option(`${selectedId}（当前不可用）`, selectedId));
+  }
+}
+
 function collectSettings() {
   const settings = {};
   $$('[data-config]').forEach((element) => {
@@ -232,6 +244,7 @@ function showToast(message, error = false) {
 async function loadState() {
   try {
     state.data = await bridge.apiGet("ui/state");
+    updateBackupProviders(state.data.providers, state.data.config?.backup_provider_id);
     applyConfig(state.data.config);
     updateStatus();
     updateBackground();

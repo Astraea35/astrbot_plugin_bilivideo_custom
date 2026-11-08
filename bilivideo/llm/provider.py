@@ -121,11 +121,11 @@ def build_provider(
                         f"自动切换到备用 AstrBot 模型通道【{backup_id}】执行二次重试..."
                     )
                     try:
+                        # Keep the backup model's own AstrBot configuration.
                         return await self.fallback.chat(
                             prompt,
                             session_id=session_id,
                             image_urls=image_urls,
-                            model=model,
                         )
                     except Exception as fallback_exc:
                         raise LLMError(

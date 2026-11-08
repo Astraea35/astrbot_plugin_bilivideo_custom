@@ -253,6 +253,8 @@ class PluginWebUI:
 
     async def get_state(self):
         config, secret_present = self._state_config()
+        get_providers = getattr(self.context, "get_all_providers", None)
+        providers = get_providers() if callable(get_providers) else []
         scheduler = getattr(self.services, "scheduler", None)
         background = self._background_path()
         cookies = getattr(getattr(self.services, "cookies", None), "get", lambda: {})()
@@ -260,6 +262,10 @@ class PluginWebUI:
             {
                 "config": config,
                 "secret_present": secret_present,
+                "providers": [
+                    {"id": provider.meta().id, "model": provider.get_model()}
+                    for provider in providers or []
+                ],
                 "status": {
                     "bilibili_logged_in": bool(getattr(self.services, "is_logged_in", lambda: False)()),
                     "bilibili_cookie_keys": sorted(cookies),

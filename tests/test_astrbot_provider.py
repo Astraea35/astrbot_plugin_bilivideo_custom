@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
+
 import pytest
 
 from bilivideo.core.exceptions import LLMError
@@ -82,15 +85,46 @@ async def test_known_provider_id_uses_provider_by_id() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_provider_id_falls_back_to_using_provider() -> None:
+async def test_missing_provider_id_does_not_retry_current_provider() -> None:
     current = _FakeProvider("current")
     context = _FakeContext(current, {"X": _FakeProvider("X")})
 
     provider = AstrbotProvider(context, provider_id="missing")
-    answer = await provider.chat("hello")
+    with pytest.raises(LLMError, match="missing.*not found"):
+        await provider.chat("hello")
 
-    assert answer == "current"
-    assert current.calls == [{"prompt": "hello", "session_id": "BiliVideo_plugin"}]
+    assert current.calls == []
+
+
+@pytest.mark.asyncio
+async def test_selected_provider_uses_native_generation_with_images() -> None:
+    generate = AsyncMock(return_value=_FakeResponse(" native result "))
+    context = SimpleNamespace(llm_generate=generate)
+
+    answer = await AstrbotProvider(context, provider_id="backup").chat(
+        "describe", session_id="session", image_urls=("https://example.com/a.png",)
+    )
+
+    assert answer == "native result"
+    generate.assert_awaited_once_with(
+        chat_provider_id="backup",
+        prompt="describe",
+        session_id="session",
+        image_urls=["https://example.com/a.png"],
+    )
+
+
+@pytest.mark.asyncio
+async def test_native_error_does_not_fall_back_to_current_provider() -> None:
+    context = SimpleNamespace(
+        llm_generate=AsyncMock(side_effect=RuntimeError("provider unavailable")),
+        get_using_provider=Mock(),
+    )
+
+    with pytest.raises(LLMError, match="provider unavailable"):
+        await AstrbotProvider(context, provider_id="backup").chat("hello")
+
+    context.get_using_provider.assert_not_called()
 
 
 @pytest.mark.asyncio
