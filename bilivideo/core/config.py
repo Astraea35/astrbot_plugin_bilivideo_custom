@@ -15,6 +15,7 @@ from typing import Any
 
 from .constants import (
     ACCESS_MODES,
+    CARD_TEMPLATES,
     LLM_PROVIDERS,
     NOTE_STYLES,
     QUALITY_TO_KBPS,
@@ -121,6 +122,13 @@ def normalize_list(raw: Any, default: tuple[str, ...] = ()) -> tuple[str, ...]:
         return tuple(result) if result else default
 
     return default
+
+
+def normalize_renderer_template(raw: Any) -> str:
+    """Accept template IDs saved with the old display label appended."""
+    value = _coerce_str(raw, DEFAULT_TEMPLATE)
+    template_id = value.split(" ", 1)[0]
+    return template_id if template_id in CARD_TEMPLATES else value
 
 
 def normalize_provider_ids(raw: Any) -> list[str]:
@@ -368,7 +376,7 @@ class PluginConfig:
             default_download_count=_coerce_int(flat.get("default_download_count"), 3, lo=1, hi=20),
             search_max_concurrent=_coerce_int(flat.get("search_max_concurrent"), 1, lo=1, hi=5),
             search_show_progress=_coerce_bool(flat.get("search_show_progress"), True),
-            renderer_template=_coerce_str(flat.get("renderer_template"), DEFAULT_TEMPLATE),
+            renderer_template=normalize_renderer_template(flat.get("renderer_template")),
             enable_dynamic_ai_summary=_coerce_bool(flat.get("enable_dynamic_ai_summary"), False),
             dynamic_summary_provider=_coerce_str(flat.get("dynamic_summary_provider"), ""),
             dynamic_summary_model=_coerce_str(flat.get("dynamic_summary_model"), ""),

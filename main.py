@@ -17,7 +17,12 @@ from astrbot.api.star import Context, Star, StarTools
 
 from .bilivideo import handlers
 from .bilivideo.bili_services import BiliVideoServices
-from .bilivideo.core.config import PluginConfig, normalize_list_for_json, normalize_provider_ids
+from .bilivideo.core.config import (
+    PluginConfig,
+    normalize_list_for_json,
+    normalize_provider_ids,
+    normalize_renderer_template,
+)
 from .bilivideo.core.data_manager import DataManager
 from .bilivideo.core.logging import get_logger
 from .bilivideo.handlers.scheduled_push import push_callback
@@ -63,6 +68,13 @@ def _migrate_and_sanitize_config(config_dict: dict) -> bool:
             normalized = normalize(val)
             if val != normalized:
                 config_dict[field] = normalized
+                modified = True
+
+    for block in (config_dict, config_dict.get("render")):
+        if isinstance(block, dict) and "renderer_template" in block:
+            normalized = normalize_renderer_template(block["renderer_template"])
+            if block["renderer_template"] != normalized:
+                block["renderer_template"] = normalized
                 modified = True
 
     return modified

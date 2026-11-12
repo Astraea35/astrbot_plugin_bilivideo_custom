@@ -5,51 +5,51 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const fieldGroups = {
   aiMain: [
-    { key: "llm_provider", label: "主模型提供者", type: "select", options: [["astrbot", "AstrBot 当前模型"], ["astrbot_custom", "AstrBot 指定平台"], ["openai_compatible", "OpenAI 兼容 API"]] },
-    { key: "astrbot_provider_id", label: "AstrBot 平台 ID", hint: "例如 deepseek、openai", type: "text" },
-    { key: "llm_provider_id", label: "内置模型 ID", hint: "留空使用当前默认模型", type: "text" },
-    { key: "llm_api_base", label: "API Base URL", type: "url" },
-    { key: "llm_api_key", label: "API Key", hint: "留空保持当前密钥", type: "password", secret: true },
+    { key: "llm_provider", label: "主模型提供者", type: "select", options: [["astrbot", "AstrBot 当前默认模型"], ["astrbot_custom", "AstrBot 指定平台"], ["openai_compatible", "自定义 OpenAI 兼容接口"]] },
+    { key: "astrbot_provider_id", label: "AstrBot 平台标识", hint: "例如 deepseek、openai", type: "text" },
+    { key: "llm_provider_id", label: "内置模型标识", hint: "留空使用当前默认模型", type: "text" },
+    { key: "llm_api_base", label: "模型接口地址", type: "url" },
+    { key: "llm_api_key", label: "模型接口密钥", hint: "留空保持当前密钥", type: "password", secret: true },
     { key: "llm_model", label: "模型名称", type: "text" },
-    { key: "llm_temperature", label: "Temperature", type: "number", step: "0.1", min: "0", max: "2" },
+    { key: "llm_temperature", label: "生成温度（随机性）", hint: "数值越低越稳定，总结推荐 0.2～0.6", type: "number", step: "0.1", min: "0", max: "2" },
     { key: "enable_fallback", label: "启用故障备用重试", hint: "主模型失败时按顺序尝试备用模型", type: "switch" },
     { key: "backup_provider_id", label: "备用模型", hint: "按 Ctrl / Command 多选；按列表顺序尝试，可在 AstrBot 插件配置页调整顺序。修改后重载插件生效。", type: "select", multiple: true, options: [] },
-    { key: "bangumi_token", label: "Bangumi Access Token", hint: "可选，留空保持当前令牌", type: "password", secret: true },
+    { key: "bangumi_token", label: "番组计划访问令牌", hint: "可选，留空保持当前令牌", type: "password", secret: true },
   ],
   aiDynamic: [
-    { key: "enable_dynamic_ai_summary", label: "动态 AI 摘要", hint: "为订阅动态额外生成摘要", type: "switch" },
-    { key: "dynamic_summary_provider", label: "动态摘要 Provider ID", type: "text" },
+    { key: "enable_dynamic_ai_summary", label: "动态智能摘要", hint: "为订阅动态额外生成摘要", type: "switch" },
+    { key: "dynamic_summary_provider", label: "动态摘要模型标识", hint: "填写已配置的模型标识；留空使用默认总结模型", type: "text" },
     { key: "dynamic_summary_model", label: "动态摘要模型", hint: "留空使用默认模型", type: "text" },
     { key: "enable_multimodal_dynamic_summary", label: "多模态动态摘要", hint: "将动态图片交给视觉模型", type: "switch" },
   ],
   summary: [
     { key: "note_style", label: "总结风格", type: "select", options: [["concise", "简洁要点"], ["detailed", "完整记录"], ["professional", "结构化分析"]] },
     { key: "enable_link", label: "插入时间戳", hint: "在总结中嵌入跳转标记", type: "switch" },
-    { key: "enable_summary", label: "末尾 AI 总结段落", type: "switch" },
+    { key: "enable_summary", label: "末尾智能总结段落", type: "switch" },
     { key: "max_note_length", label: "最大总结长度", type: "number", min: "500", max: "60000" },
     { key: "prefer_subtitle", label: "优先使用平台字幕", type: "switch" },
-    { key: "subtitle_langs", label: "字幕语言优先级", hint: "使用逗号分隔，例如 zh-Hans,zh,en", type: "text", list: true },
-    { key: "download_quality", label: "下载质量", type: "select", options: [["fast", "快速"], ["medium", "均衡"], ["slow", "高质量"]] },
+    { key: "subtitle_langs", label: "字幕语言优先级", hint: "使用逗号分隔；zh-Hans 为简体中文，zh 为中文，en 为英语", type: "text", list: true },
+    { key: "download_quality", label: "音频质量", type: "select", options: [["fast", "快速（低码率）"], ["medium", "均衡（中码率）"], ["slow", "高质量（高码率）"]] },
   ],
   render: [
     { key: "output_image", label: "输出总结图片", type: "switch" },
-    { key: "theme", label: "卡片主题", type: "select", options: [["light", "浅色"], ["dark", "深色"]] },
+    { key: "theme", label: "卡片主题", type: "select", options: [["light", "浅色主题"], ["dark", "深色主题"]] },
     { key: "renderer_template", label: "渲染模板", type: "select", options: [["template_1", "经典风格"], ["template_2", "B站粉风格"], ["simple", "简约风格"]] },
     { key: "custom_font_path", label: "自定义字体路径", hint: "可选，填写服务器上的字体文件路径", type: "text", wide: true },
-    { key: "image_scale_factor", label: "图片缩放倍数", type: "select", options: [["1", "1x"], ["2", "2x"], ["3", "3x"], ["4", "4x"]] },
-    { key: "image_width", label: "图片宽度", type: "number", min: "800", max: "2400" },
-    { key: "image_output_format", label: "图片格式", type: "select", options: [["png", "PNG"], ["jpg", "JPG"], ["webp", "WebP"]] },
+    { key: "image_scale_factor", label: "图片缩放倍数", type: "select", options: [["1", "一倍（常规）"], ["2", "二倍（高清，推荐）"], ["3", "三倍（超清）"], ["4", "四倍（极致清晰）"]] },
+    { key: "image_width", label: "图片宽度（像素）", type: "number", min: "800", max: "2400" },
+    { key: "image_output_format", label: "图片格式", type: "select", options: [["png", "无损图片（PNG）"], ["jpg", "通用图片（JPG）"], ["webp", "紧凑图片（WebP）"]] },
     { key: "image_quality", label: "图片质量", type: "number", min: "1", max: "100" },
     { key: "enable_auto_split", label: "自动拆分长图", type: "switch" },
     { key: "max_cards_per_image", label: "每张图片最大卡片数", type: "number", min: "2", max: "12" },
-    { key: "image_font_size", label: "图片字体大小", type: "number", min: "16", max: "64" },
+    { key: "image_font_size", label: "图片字号（像素）", type: "number", min: "16", max: "64" },
   ],
   general: [
-    { key: "debug_mode", label: "调试模式", hint: "开启 DEBUG 级别日志", type: "switch" },
+    { key: "debug_mode", label: "调试模式", hint: "开启详细调试日志", type: "switch" },
     { key: "processing_timeout", label: "单次总结超时（秒）", type: "number", min: "60", max: "1800" },
     { key: "user_cooldown_seconds", label: "用户冷却（秒）", hint: "设为 0 关闭", type: "number", min: "0", max: "600" },
-    { key: "interval_secs", label: "UP 主动态检测周期（秒）", type: "number", min: "10", max: "3600" },
-    { key: "task_gap_secs", label: "相邻 UP 主任务间隔（秒）", type: "number", min: "1", max: "120" },
+    { key: "interval_secs", label: "投稿者动态检测周期（秒）", type: "number", min: "10", max: "3600" },
+    { key: "task_gap_secs", label: "相邻投稿者任务间隔（秒）", type: "number", min: "1", max: "120" },
     { key: "reconnect_silent", label: "重连静默模式", type: "switch" },
     { key: "reconnect_silent_threshold_secs", label: "静默触发阈值（秒）", type: "number", min: "60", max: "86400" },
     { key: "recent_dynamic_cache", label: "动态缓存大小", type: "number", min: "1", max: "20" },
@@ -72,10 +72,10 @@ const fieldGroups = {
     { key: "auto_push_summary", label: "推送时生成总结", type: "switch" },
     { key: "check_interval_minutes", label: "检查间隔（分钟）", type: "number", min: "5", max: "1440" },
     { key: "max_subscriptions", label: "每会话最大订阅数", type: "number", min: "1", max: "100" },
-    { key: "sub_list_render_method", label: "订阅列表渲染", type: "select", options: [["direct", "本地渲染"], ["browser", "浏览器渲染"]] },
-    { key: "plain_push_template", label: "纯文本推送模板", hint: "支持 {name} {uid} {title} {text} {url}", type: "textarea", wide: true },
-    { key: "plain_push_forward_template", label: "纯文本转发模板", type: "textarea", wide: true },
-    { key: "ai_summary_prompt", label: "动态 AI 摘要提示词", hint: "支持 {content}", type: "textarea", wide: true },
+    { key: "sub_list_render_method", label: "订阅列表渲染", type: "select", options: [["direct", "本地绘图"], ["browser", "浏览器截图"]] },
+    { key: "plain_push_template", label: "纯文本推送模板", hint: "可用变量：{name} 作者、{uid} 用户编号、{title} 标题、{text} 正文、{url} 链接", type: "textarea", wide: true },
+    { key: "plain_push_forward_template", label: "纯文本转发模板", hint: "可用变量与推送模板相同，内容来自被转发的原动态", type: "textarea", wide: true },
+    { key: "ai_summary_prompt", label: "动态智能摘要提示词", hint: "使用 {content} 代表动态内容", type: "textarea", wide: true },
   ],
   message: [
     { key: "enable_forward_message", label: "启用合并转发", hint: "将卡片与总结打包为聊天记录", type: "switch" },
@@ -83,11 +83,11 @@ const fieldGroups = {
     { key: "forward_bot_uin", label: "转发机器人 QQ 号", type: "text" },
   ],
   accessSearch: [
-    { key: "access_mode", label: "总访问范围", type: "select", options: [["all", "全部允许"], ["private_only", "仅私聊"], ["whitelist", "白名单"], ["blacklist", "黑名单"]] },
-    { key: "access_list", label: "总访问名单", hint: "群号或用户 ID，逗号分隔", type: "text", list: true },
-    { key: "manual_summary_mode", label: "手动总结范围", type: "select", options: [["all", "全部允许"], ["private_only", "仅私聊"], ["whitelist", "白名单"], ["blacklist", "黑名单"]] },
+    { key: "access_mode", label: "总访问范围", type: "select", options: [["all", "全部允许"], ["private_only", "仅限私聊"], ["whitelist", "仅限白名单"], ["blacklist", "排除黑名单"]] },
+    { key: "access_list", label: "总访问名单", hint: "群号或用户标识，逗号分隔", type: "text", list: true },
+    { key: "manual_summary_mode", label: "手动总结范围", type: "select", options: [["all", "全部允许"], ["private_only", "仅限私聊"], ["whitelist", "仅限白名单"], ["blacklist", "排除黑名单"]] },
     { key: "manual_summary_list", label: "手动总结名单", type: "text", list: true },
-    { key: "auto_summary_mode", label: "自动总结范围", type: "select", options: [["all", "全部允许"], ["private_only", "仅私聊"], ["whitelist", "白名单"], ["blacklist", "黑名单"]] },
+    { key: "auto_summary_mode", label: "自动总结范围", type: "select", options: [["all", "全部允许"], ["private_only", "仅限私聊"], ["whitelist", "仅限白名单"], ["blacklist", "排除黑名单"]] },
     { key: "auto_summary_list", label: "自动总结名单", type: "text", list: true },
     { key: "default_count", label: "默认搜索返回数", type: "number", min: "1", max: "50" },
     { key: "default_download_count", label: "建议每次下载数", type: "number", min: "1", max: "20" },
@@ -137,17 +137,17 @@ function statusPill(label, kind = "neutral") { return `<span class="status-pill 
 function platformCard(platform, compact = false) {
   const p = state.data?.status || {};
   const info = {
-    bilibili: { name: "Bilibili", sub: "B站视频与动态", logo: "BV", cls: "bili", ok: p.bilibili_logged_in, label: p.bilibili_logged_in ? "已登录" : "未登录" },
-    youtube: { name: "YouTube", sub: "YouTube 视频解析", logo: "YT", cls: "youtube", ok: p.youtube_cookies, label: p.youtube_cookies ? "Cookies 已保存" : "未配置" },
+    bilibili: { name: "哔哩哔哩", sub: "B站视频与动态", logo: "BV", cls: "bili", ok: p.bilibili_logged_in, label: p.bilibili_logged_in ? "已登录" : "未登录" },
+    youtube: { name: "YouTube", sub: "YouTube 视频解析", logo: "YT", cls: "youtube", ok: p.youtube_cookies, label: p.youtube_cookies ? "登录凭据已保存" : "未配置" },
     douyin: { name: "抖音", sub: "短链与长链识别", logo: "抖", cls: "douyin", ok: p.multi_platform, label: p.multi_platform ? "已启用" : "未启用" },
   }[platform];
   const status = statusPill(info.label, info.ok ? "success" : "warning");
   if (compact) return `<article class="platform-card compact-card"><div class="platform-card-head"><div class="platform-brand"><span class="platform-logo ${info.cls}">${info.logo}</span><div><h3>${info.name}</h3><p>${info.sub}</p></div></div>${status}</div></article>`;
   if (platform === "bilibili") {
-    return `<article class="platform-card"><div class="platform-card-head"><div class="platform-brand"><span class="platform-logo bili">BV</span><div><h3>Bilibili</h3><p>视频、动态、订阅与 Bangumi</p></div></div><span id="bili-status">${status}</span></div><p class="platform-description">可使用聊天命令扫码登录，也可以在这里粘贴已有 Cookie。</p><div class="cookie-grid"><input id="bili-sessdata" type="password" placeholder="SESSDATA（必填）" /><input id="bili-jct" type="password" placeholder="bili_jct" /><input id="bili-uid" type="text" placeholder="DedeUserID" /><input id="bili-uid-md5" type="text" placeholder="DedeUserID__ckMd5" /></div><div class="cookie-note">当前已保存字段：<strong id="bili-cookie-keys">暂无</strong></div><div class="platform-actions"><button id="save-bili" class="primary-button" type="button">保存 B站凭据</button><button id="logout-bili" class="secondary-button" type="button">退出登录</button></div></article>`;
+    return `<article class="platform-card"><div class="platform-card-head"><div class="platform-brand"><span class="platform-logo bili">BV</span><div><h3>哔哩哔哩</h3><p>视频、动态、订阅与番组计划</p></div></div><span id="bili-status">${status}</span></div><p class="platform-description">可使用聊天命令扫码登录，也可以在这里粘贴已有登录凭据。</p><div class="cookie-grid"><input id="bili-sessdata" type="password" placeholder="登录会话（SESSDATA，必填）" /><input id="bili-jct" type="password" placeholder="校验令牌（bili_jct）" /><input id="bili-uid" type="text" placeholder="用户编号（DedeUserID）" /><input id="bili-uid-md5" type="text" placeholder="编号校验值（DedeUserID__ckMd5）" /></div><div class="cookie-note">当前已保存的凭据字段：<strong id="bili-cookie-keys">暂无</strong></div><div class="platform-actions"><button id="save-bili" class="primary-button" type="button">保存 B站凭据</button><button id="logout-bili" class="secondary-button" type="button">退出登录</button></div></article>`;
   }
   if (platform === "youtube") {
-    return `<article class="platform-card"><div class="platform-card-head"><div class="platform-brand"><span class="platform-logo youtube">YT</span><div><h3>YouTube</h3><p>yt-dlp Cookies 登录</p></div></div><span id="youtube-status">${status}</span></div><p class="platform-description">粘贴浏览器导出的 Netscape cookies.txt，或直接粘贴 Cookie 请求头。</p><textarea id="youtube-cookies" class="cookie-textarea" placeholder="# Netscape HTTP Cookie File\n或 name=value; name2=value2"></textarea><div class="platform-actions"><button id="save-youtube" class="primary-button" type="button">保存 YouTube Cookies</button><button id="logout-youtube" class="secondary-button" type="button">清除</button></div></article>`;
+    return `<article class="platform-card"><div class="platform-card-head"><div class="platform-brand"><span class="platform-logo youtube">YT</span><div><h3>YouTube</h3><p>浏览器登录凭据</p></div></div><span id="youtube-status">${status}</span></div><p class="platform-description">粘贴浏览器导出的 Netscape cookies.txt，或直接粘贴登录凭据请求头。</p><textarea id="youtube-cookies" class="cookie-textarea" placeholder="# Netscape HTTP Cookie File\n或 name=value; name2=value2"></textarea><div class="platform-actions"><button id="save-youtube" class="primary-button" type="button">保存 YouTube 登录凭据</button><button id="logout-youtube" class="secondary-button" type="button">清除</button></div></article>`;
   }
   return `<article class="platform-card"><div class="platform-card-head"><div class="platform-brand"><span class="platform-logo douyin">抖</span><div><h3>抖音</h3><p>短链 / 长链自动识别</p></div></div><span id="douyin-status">${status}</span></div><p class="platform-description">抖音不需要额外账号凭据。打开实验性多平台开关后即可启用识别、元数据卡片和自动总结。</p><label class="field"><span class="field-label"><span>启用抖音 / YouTube 多平台</span><span class="field-hint">实验功能</span></span><span class="switch-field"><span>启用</span><span class="switch"><input id="field-enable_multi_platform" data-config="enable_multi_platform" data-kind="switch" type="checkbox" /><i class="switch-ui"></i></span></span></label><div class="cookie-note">支持抖音链接识别、封面、作者、简介、互动数据和可选 AI 总结。</div></article>`;
 }
@@ -234,12 +234,12 @@ function updateStatus() {
   $("#platform-summary").textContent = s.multi_platform ? "多平台已启用" : "多平台未启用";
   $("#platform-summary").className = `soft-badge ${s.multi_platform ? "success" : ""}`;
   $("#bili-status") && ($("#bili-status").innerHTML = statusPill(s.bilibili_logged_in ? "已登录" : "未登录", s.bilibili_logged_in ? "success" : "warning"));
-  $("#youtube-status") && ($("#youtube-status").innerHTML = statusPill(s.youtube_cookies ? "Cookies 已保存" : "未配置", s.youtube_cookies ? "success" : "warning"));
+  $("#youtube-status") && ($("#youtube-status").innerHTML = statusPill(s.youtube_cookies ? "登录凭据已保存" : "未配置", s.youtube_cookies ? "success" : "warning"));
   $("#douyin-status") && ($("#douyin-status").innerHTML = statusPill(s.multi_platform ? "已启用" : "未启用", s.multi_platform ? "success" : "warning"));
   $("#bili-cookie-keys") && ($("#bili-cookie-keys").textContent = s.bilibili_cookie_keys?.length ? s.bilibili_cookie_keys.join("、") : "暂无");
   if ($("#overview-platforms")) $("#overview-platforms").innerHTML = [platformCard("bilibili", true), platformCard("youtube", true), platformCard("douyin", true)].join("");
   const enabledCount = [true, s.youtube_cookies, s.multi_platform].filter(Boolean).length;
-  $("#overview-metrics").innerHTML = [`<div class="metric-card"><div class="metric-label">已接入平台</div><div class="metric-value">${enabledCount}<small>/ 3</small></div><div class="metric-meta">Bilibili 默认可用</div></div>`, `<div class="metric-card"><div class="metric-label">当前订阅</div><div class="metric-value">${s.subscription_count || 0}</div><div class="metric-meta">动态监测目标</div></div>`, `<div class="metric-card"><div class="metric-label">调度状态</div><div class="metric-value">${running ? "ON" : "OFF"}</div><div class="metric-meta">自动推送轮询</div></div>`, `<div class="metric-card"><div class="metric-label">输出主题</div><div class="metric-value">${state.data?.config?.theme === "dark" ? "暗" : "亮"}</div><div class="metric-meta">当前卡片渲染主题</div></div>`].join("");
+  $("#overview-metrics").innerHTML = [`<div class="metric-card"><div class="metric-label">已接入平台</div><div class="metric-value">${enabledCount}<small>/ 3</small></div><div class="metric-meta">B站默认可用</div></div>`, `<div class="metric-card"><div class="metric-label">当前订阅</div><div class="metric-value">${s.subscription_count || 0}</div><div class="metric-meta">动态监测目标</div></div>`, `<div class="metric-card"><div class="metric-label">调度状态</div><div class="metric-value">${running ? "运行" : "停止"}</div><div class="metric-meta">自动推送轮询</div></div>`, `<div class="metric-card"><div class="metric-label">输出主题</div><div class="metric-value">${state.data?.config?.theme === "dark" ? "暗" : "亮"}</div><div class="metric-meta">当前卡片渲染主题</div></div>`].join("");
 }
 
 function showToast(message, error = false) {

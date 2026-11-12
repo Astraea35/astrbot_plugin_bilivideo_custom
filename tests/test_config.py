@@ -22,6 +22,17 @@ def test_backup_provider_ids_preserve_order_and_legacy_values(raw, expected) -> 
     assert normalize_provider_ids(raw) == expected
 
 
+@pytest.mark.parametrize("template", ["template_1", "template_2", "simple"])
+@pytest.mark.parametrize("nested", [False, True])
+def test_legacy_template_labels_keep_the_selected_style(template: str, nested: bool) -> None:
+    from bilivideo.core.constants import CARD_TEMPLATES
+
+    for value in (template, f"{template} ({CARD_TEMPLATES[template]['name']})"):
+        block = {"renderer_template": value}
+        raw = {"render": block} if nested else block
+        assert PluginConfig.from_mapping(raw).renderer_template == template
+
+
 def test_defaults() -> None:
     cfg = PluginConfig.from_mapping({})
     assert cfg.note_style == "professional"

@@ -59,3 +59,16 @@ async def test_save_backup_models_preserves_order_and_can_clear(tmp_path, monkey
     assert services.raw_config["llm"]["backup_provider_id"] == expected
     state = await ui.get_state()
     assert state["config"]["backup_provider_id"] == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested", [False, True])
+async def test_state_normalizes_legacy_template_selection(tmp_path, monkeypatch, nested: bool) -> None:
+    monkeypatch.setattr("bilivideo.webui.json_response", lambda payload: payload)
+    block = {"renderer_template": "template_1 (经典风格)"}
+    config = {"render": block} if nested else block
+    ui = PluginWebUI(SimpleNamespace(config=config), object(), SimpleNamespace(), str(tmp_path))
+
+    state = await ui.get_state()
+
+    assert state["config"]["renderer_template"] == "template_1"

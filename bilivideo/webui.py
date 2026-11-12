@@ -233,6 +233,7 @@ class PluginWebUI:
         for field_name in LIST_FIELDS:
             values[field_name] = _csv_values(values.get(field_name))
         values["backup_provider_id"] = normalize_provider_ids(values.get("backup_provider_id"))
+        values["renderer_template"] = parsed.renderer_template
         secret_present = {field_name: bool(str(flattened.get(field_name, "")).strip()) for field_name in SECRET_FIELDS}
         for field_name in SECRET_FIELDS:
             values[field_name] = ""
