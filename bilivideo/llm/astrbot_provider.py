@@ -16,6 +16,24 @@ class AstrbotProvider:
         self._context = astrbot_context
         self.provider_id = provider_id
 
+    def get_provider(self) -> Any:
+        if self._context is None:
+            raise LLMError("AstrBot context unavailable")
+        provider = (self._context.get_provider_by_id(self.provider_id) if self.provider_id
+                    else self._context.get_using_provider())
+        if provider is None:
+            raise LLMError("selected AstrBot provider not found")
+        return provider
+
+    @property
+    def cache_identity(self) -> str:
+        try:
+            provider = self.get_provider()
+            settings = getattr(provider, "provider_config", {})
+            return f"astrbot:{self.provider_id}:{provider.get_model()}:{settings.get('api_base', '')}"
+        except (AttributeError, LLMError):
+            return f"astrbot:{self.provider_id}"
+
     async def chat(
         self,
         prompt: str,
@@ -93,6 +111,16 @@ class AstrbotProvider:
                     image_urls=image_urls,
                     model=model,
                 )
+        # Current AstrBot adapters accept images on text_chat itself.
+        method = getattr(provider, "text_chat", None)
+        if callable(method):
+            parameters = inspect.signature(method).parameters
+            if "image_urls" in parameters or any(
+                item.kind is inspect.Parameter.VAR_KEYWORD for item in parameters.values()
+            ):
+                return await self._call_provider_method(
+                    method, prompt=prompt, session_id=session_id, image_urls=image_urls, model=model,
+                )
         raise LLMError("selected AstrBot provider does not support image input")
 
     @staticmethod
@@ -132,7 +160,11 @@ class AstrbotProvider:
             elif supports("images"):
                 kwargs["images"] = list(image_urls)
             elif supports("image_url"):
+                if len(image_urls) != 1:
+                    raise LLMError("selected AstrBot provider accepts only one image")
                 kwargs["image_url"] = image_urls[0]
+            else:
+                raise LLMError("selected AstrBot provider does not accept image input")
 
         result = method(**kwargs)
         if inspect.isawaitable(result):

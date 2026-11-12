@@ -23,6 +23,10 @@ class OpenAICompatibleProvider:
         # 🌟 动态构建 aiohttp 超时时间，不再硬死在 120 秒
         self._request_timeout = aiohttp.ClientTimeout(total=timeout_seconds)
 
+    @property
+    def cache_identity(self) -> str:
+        return f"openai:{self._url}:{self._model}"
+
     async def chat(
         self,
         prompt: str,

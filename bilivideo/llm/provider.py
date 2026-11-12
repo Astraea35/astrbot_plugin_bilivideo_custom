@@ -99,6 +99,12 @@ def build_provider(
                 self.fallbacks = fallbacks
                 self.logger = log
 
+            @property
+            def cache_identity(self) -> str:
+                return str(getattr(self.primary, "cache_identity", "")) + repr([
+                    provider.cache_identity for provider in self.fallbacks
+                ])
+
             async def chat(
                 self,
                 prompt: str,

@@ -1,7 +1,7 @@
 [project]
 name = "astrbot_plugin_bilivideo_custom"
 description = "Masterpiece-grade Bilibili & Douyin video summarization plugin for AstrBot (Custom Mod)"
-version = "2.4.25"
+version = "2.4.26"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 readme = "README.md"

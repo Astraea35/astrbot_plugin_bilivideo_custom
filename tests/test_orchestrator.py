@@ -149,7 +149,7 @@ async def test_unrelated_llm_answer_is_not_cached(monkeypatch) -> None:
         await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
     assert len(llm.calls) == 4
     assert pipeline.fetch_calls == 2
-    assert await orch._cache.get(info.bvid) is None
+    assert await orch._cache.get(orch.cache_key(info.bvid)) is None
 
 
 @pytest.mark.asyncio
@@ -194,7 +194,7 @@ async def test_off_topic_persistent_cache_is_discarded(monkeypatch, tmp_path) ->
     )
     from bilivideo.summarize.orchestrator import NoteResult
 
-    await orch._set_persistent_cache(info.bvid, NoteResult(_FOOD_NOTE, info, True))
+    await orch._set_persistent_cache(orch.cache_key(info.bvid), NoteResult(_FOOD_NOTE, info, True))
     result = await orch.generate(f"https://www.bilibili.com/video/{info.bvid}")
     assert result.markdown == _GAME_NOTE
     assert pipeline.fetch_calls == 1
@@ -276,14 +276,14 @@ async def test_kimi_parenting_subtitle_or_cache_is_replaced_with_audio(monkeypat
     if cached_at != "none":
         # Even a copied, correct title must not legitimize unrelated body text.
         wrong = NoteResult(f"# {KIMI_TITLE}\n\n{PARENTING}", info, True)
-        await orch._set_persistent_cache(info.bvid, wrong)
+        await orch._set_persistent_cache(orch.cache_key(info.bvid), wrong)
         if cached_at == "memory":
-            await orch._cache.set(info.bvid, wrong)
+            await orch._cache.set(orch.cache_key(info.bvid), wrong)
         if cached_at == "legacy":
             # Old output is invalidated even if its topic is otherwise correct.
             def legacy(data):
-                data["entries"][info.bvid].pop("version")
-                data["entries"][info.bvid]["markdown"] = note
+                data["entries"][orch.cache_key(info.bvid)].pop("version")
+                data["entries"][orch.cache_key(info.bvid)]["markdown"] = note
             await orch._persistent_cache.mutate(legacy)
 
     result = await orch.generate(info.url)
@@ -294,9 +294,9 @@ async def test_kimi_parenting_subtitle_or_cache_is_replaced_with_audio(monkeypat
     assert PARENTING not in llm.calls[0]
     assert TECH in llm.calls[0]
     assert pipeline.cleanup_calls == [audio]
-    saved = (await orch._persistent_cache.read())["entries"][info.bvid]
+    saved = (await orch._persistent_cache.read())["entries"][orch.cache_key(info.bvid)]
     assert saved["markdown"] == note
-    assert saved["version"] == 2
+    assert saved["version"] == 3
 
 
 @pytest.mark.asyncio
@@ -326,7 +326,7 @@ async def test_rejected_subtitle_is_not_retained_when_asr_fails(monkeypatch, fai
         await orch.generate(info.url)
     assert not llm.calls
     assert await orch._transcript_cache.get(info.bvid) is None
-    assert await orch._cache.get(info.bvid) is None
+    assert await orch._cache.get(orch.cache_key(info.bvid)) is None
     if failure == "wrong_audio":
         assert pipeline.cleanup_calls == [audio]
 
@@ -357,9 +357,9 @@ async def test_apple_leech_subtitle_and_disclaimed_cache_are_replaced(monkeypatc
     )
     if cached_at != "none":
         wrong = NoteResult(LEECH_NOTE, info, True)
-        await orch._set_persistent_cache(info.bvid, wrong)
+        await orch._set_persistent_cache(orch.cache_key(info.bvid), wrong)
         if cached_at == "memory":
-            await orch._cache.set(info.bvid, wrong)
+            await orch._cache.set(orch.cache_key(info.bvid), wrong)
 
     result = await orch.generate(info.url)
     assert result.markdown == note
@@ -369,7 +369,7 @@ async def test_apple_leech_subtitle_and_disclaimed_cache_are_replaced(monkeypatc
     assert LEECH_TEXT not in llm.calls[0]
     assert APPLE_TEXT in llm.calls[0]
     assert pipeline.cleanup_calls == [audio]
-    assert (await orch._persistent_cache.read())["entries"][info.bvid]["markdown"] == note
+    assert (await orch._persistent_cache.read())["entries"][orch.cache_key(info.bvid)]["markdown"] == note
 
 
 @pytest.mark.asyncio
@@ -406,7 +406,7 @@ async def test_disclaimed_off_topic_llm_answer_is_not_cached(monkeypatch, tmp_pa
     with pytest.raises(BiliVideoError, match="summary does not match"):
         await orch.generate(info.url)
     assert len(llm.calls) == 4
-    assert await orch._cache.get(info.bvid) is None
+    assert await orch._cache.get(orch.cache_key(info.bvid)) is None
     assert info.bvid not in (await orch._persistent_cache.read())["entries"]
 
 

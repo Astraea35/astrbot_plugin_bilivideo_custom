@@ -64,6 +64,24 @@
       "download_quality": { "type": "string", "default": "fast", "options": ["fast", "medium", "slow"], "labels": ["快速（低码率）", "均衡（中码率）", "高质量（高码率）"], "description": "音频质量", "hint": "快速档为每秒 32 千比特，均衡档为每秒 64 千比特，高质量档为每秒 128 千比特；码率越高，下载量越大。" }
     }
   },
+  "video": {
+    "description": "🎬 视频理解（可选）",
+    "type": "object",
+    "items": {
+      "video_summary_mode": { "type": "string", "default": "subtitle", "options": ["subtitle", "frames", "native"], "labels": ["字幕 / 音频转写（默认）", "字幕＋抽样画面", "Gemini 原生视频"], "description": "视频总结依据", "hint": "字幕模式维持原有流程；画面模式需要图片输入能力；原生模式需要 Gemini 视频接口。" },
+      "video_summary_provider": { "type": "string", "default": "", "description": "视频理解模型提供者", "hint": "留空复用主总结模型。", "_special": "select_provider" },
+      "video_summary_model": { "type": "string", "default": "", "description": "视频理解模型名称", "hint": "留空使用所选模型的默认名称。" },
+      "video_processing_mode": { "type": "string", "default": "auto", "options": ["auto", "static", "agentic"], "labels": ["自动", "Static 静态", "Agentic 智能"], "description": "原生视频处理模式", "hint": "自动针对整段总结选择 Static；Agentic 需要具体模型和反代同时支持，不保证更省 token。" },
+      "video_native_transport": { "type": "string", "default": "auto", "options": ["auto", "generate_content", "interactions"], "labels": ["自动", "generateContent（Static）", "Interactions"], "description": "原生视频接口", "hint": "自动使用静态接口；Agentic 通过 Interactions。按反代开放的接口选择。" },
+      "video_api_base": { "type": "string", "default": "", "description": "Gemini 原生接口地址", "hint": "可选。填写反代提供的 Gemini 地址（可带 /v1beta）；留空仅复用 AstrBot 的 Gemini 原生提供者。不能填写 OpenAI 的 /chat/completions 地址。" },
+      "video_api_key": { "type": "string", "default": "", "description": "视频原生接口密钥", "hint": "可选，留空复用同一服务的模型密钥；更换服务需填写对应密钥。" },
+      "video_fallback": { "type": "bool", "default": true, "description": "视频理解失败时回退", "hint": "原生视频失败改用抽样画面；画面失败改用字幕或转写，结果标明实际依据。关闭后直接报告失败。" },
+      "video_frame_count": { "type": "int", "default": 8, "min": 1, "max": 24, "description": "最多抽取画面数", "hint": "均匀抽样，不是逐帧阅读；数量越多图片输入开销越高。" },
+      "video_frame_width": { "type": "int", "default": 768, "min": 320, "max": 1536, "description": "抽样画面宽度（像素）", "hint": "不会放大原视频；下载优先选择不超过 480p 的画质。" },
+      "video_max_duration": { "type": "int", "default": 1800, "min": 10, "max": 10800, "description": "视频理解最长时长（秒）", "hint": "默认 30 分钟；超限后按回退设置处理。" },
+      "video_max_size_mb": { "type": "int", "default": 80, "min": 1, "max": 512, "description": "视频文件大小上限（MiB）", "hint": "限制视频下载与上传大小，默认 80 MiB。" }
+    }
+  },
   "coolapk": {
     "description": "📱 酷安总结",
     "type": "object",

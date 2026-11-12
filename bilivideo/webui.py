@@ -43,6 +43,7 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
     "general": ("debug_mode", "processing_timeout", "user_cooldown_seconds", "task_gap_secs", "reconnect_silent", "reconnect_silent_threshold_secs", "recent_dynamic_cache", "dynamic_limit"),
     "llm": ("llm_provider", "astrbot_provider_id", "llm_provider_id", "llm_api_base", "llm_api_key", "llm_model", "llm_temperature", "enable_fallback", "backup_provider_id", "bangumi_token"),
     "summary": ("note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle", "enable_bilibili_ai_subtitle", "summary_featured_comment_count", "summary_comment_reply_count", "subtitle_langs", "download_quality"),
+    "video": ("video_summary_mode", "video_summary_provider", "video_summary_model", "video_processing_mode", "video_native_transport", "video_api_base", "video_api_key", "video_fallback", "video_frame_count", "video_frame_width", "video_max_duration", "video_max_size_mb"),
     "coolapk": ("coolapk_summary_provider", "coolapk_summary_model"),
     "zhihu": ("zhihu_cookie", "zhihu_summary_provider", "zhihu_summary_model"),
     "render": ("output_image", "theme", "renderer_template", "custom_font_path", "image_scale_factor", "image_width", "image_output_format", "image_quality", "enable_auto_split", "max_cards_per_image", "image_font_size"),
@@ -55,7 +56,7 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 CONFIG_FIELDS = {field_name for group in CONFIG_GROUPS.values() for field_name in group}
-SECRET_FIELDS = {"llm_api_key", "bangumi_token", "zhihu_cookie"}
+SECRET_FIELDS = {"llm_api_key", "bangumi_token", "zhihu_cookie", "video_api_key"}
 LIST_FIELDS = {"subtitle_langs", "trigger_keywords", "access_list", "manual_summary_list", "auto_summary_list", "enabled_platforms"}
 DEFAULT_EXTRA_VALUES: dict[str, Any] = {"astrbot_provider_id": "", "enable_fallback": False, "backup_provider_id": [], "background_image": ""}
 
@@ -366,7 +367,7 @@ class PluginWebUI:
         return json_response(
             {
                 "saved": True,
-                "config": {key: _json_value(value) for key, value in asdict(parsed).items()},
+                "config": {key: ("" if key in SECRET_FIELDS else _json_value(value)) for key, value in asdict(parsed).items()},
                 "restart_required": bool(
                     any(key in settings for key in {"llm_provider", "llm_api_base", "llm_api_key", "llm_model", "enable_fallback", "backup_provider_id"})
                 ),

@@ -1,4 +1,8 @@
+v2.4.26：新增可选视频理解，支持字幕＋抽样画面、Gemini 原生视频及自动 / Static / Agentic。默认仍使用字幕总结，原生配置页和插件控制台可切换；渠道不支持时按设置回退并标明实际依据。[配置与使用说明](docs/video-understanding.md)
+
 v2.4.25：原生配置页与插件控制台的固定选项、设置标题及提示说明尽量使用中文；保留实际模型标识和配置值，兼容旧版模板设置。备用模型继续支持多选与按顺序故障切换。
+
+新增可选视频理解：保留字幕 / ASR 总结，支持“字幕＋抽样画面”和 Gemini 原生视频，以及自动 / Static / Agentic 处理模式。默认关闭视频理解，原生配置页或插件控制台均可开启；反代不支持时按设置回退并标注实际依据。[开启方式、实施清单与验证边界](docs/video-understanding.md)
 
 Telegram 的视频总结、动态文字、订阅列表和视频订阅推送默认使用 Markdown
 文字，跳过 QQ 图片排版、自动识别封面图和合并转发。动态中的原始图片仍作为媒体发送。
@@ -11,7 +15,7 @@ v2.4.19：修复正确转写因英文品牌识别差异、标题改写而触发�
 
 v2.4.18：增强中英混合标题的相关性检查，无关字幕会改用音频 ASR；内存/磁盘缓存都会检查正文，旧版总结缓存自动失效。同步上游的信息密度约束，并在提示词中要求简洁/专业/详细模式分别不超过 600/1200/1800 字，不逐句复述、不重复结论；用户配置了更小上限时取较小值。这是生成提示，实际篇幅仍取决于模型执行，`max_note_length` 继续作为生成后的截断限制。
 
-v2.4.17：无可用字幕且必剪未识别出语音时，会明确说明原因，不再笼统报告“视频转写失败”。当前总结依赖字幕或语音，尚不支持仅凭画面总结；纯音乐、无旁白或人声不清晰的视频可能没有可总结的转写内容。
+v2.4.17：无可用字幕且必剪未识别出语音时，会明确说明原因，不再笼统报告“视频转写失败”。该旧版本依赖字幕或语音；现在可按上方说明另行开启画面或原生视频总结。
 
 v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、每张最多 6400 万像素；关闭章节分页时仍执行安全分图。合并转发会回读校验条目与图片是否齐全，订阅投递不完整时保留待推送。[QQ 图片边界实测记录](docs/qq-image-limits.md)
 
@@ -25,7 +29,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 [![AstrBot](https://img.shields.io/badge/AstrBot-v4.0%2B-blueviolet)](https://astrbot.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.4.23-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.4.26-orange)](CHANGELOG.md)
 
 </div>
 

@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import threading
 import time
 from collections.abc import Iterable, Mapping
 from hashlib import sha256
@@ -225,6 +226,74 @@ class YtDlpDownloader:
                 continue
             return _parse_sub(sub_info, lang, target, video_id)
         return None
+
+    def download_video(
+        self,
+        video_url: str,
+        *,
+        output_dir: str | Path,
+        max_duration: int,
+        max_size_bytes: int,
+        cancel_event: threading.Event,
+    ) -> dict:
+        """Download a bounded, low-resolution video into a caller-owned directory."""
+        target = Path(output_dir)
+        target.mkdir(parents=True, exist_ok=True)
+        transferred: dict[str, int] = {}
+
+        def check_info(info: dict, *, incomplete: bool = False) -> None:
+            if cancel_event.is_set():
+                raise DownloadError("video job cancelled")
+            if float(info.get("duration") or 0) > max_duration:
+                raise DownloadError("video duration limit", user_message="视频超过视频理解的时长上限")
+            if int(info.get("filesize") or 0) > max_size_bytes:
+                raise DownloadError("video size limit", user_message="视频超过视频理解的文件大小上限")
+
+        def check_progress(status: dict) -> None:
+            if cancel_event.is_set():
+                raise DownloadError("video job cancelled")
+            transferred[str(status.get("filename", ""))] = int(status.get("downloaded_bytes") or 0)
+            if sum(transferred.values()) > max_size_bytes:
+                raise DownloadError("video size limit", user_message="视频超过视频理解的文件大小上限")
+
+        opts = {
+            "format": "bestvideo[height<=480]+bestaudio/best[height<=480]",
+            "merge_output_format": "mp4",
+            "outtmpl": str(target / "source.%(ext)s"),
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "socket_timeout": YTDLP_SOCKET_TIMEOUT_SECONDS,
+            "retries": 1,
+            "fragment_retries": 1,
+            "match_filter": check_info,
+            "progress_hooks": [check_progress],
+            "max_filesize": max_size_bytes,
+        }
+        cookiefile = self._cookiefile_for(video_url)
+        if cookiefile:
+            opts["cookiefile"] = cookiefile
+        ffmpeg_path = _ffmpeg_location()
+        if ffmpeg_path:
+            opts["ffmpeg_location"] = ffmpeg_path
+        try:
+            info = _extract_info_with_retry(video_url, opts)
+        except yt_dlp.utils.DownloadError as exc:
+            raise DownloadError("video download failed", user_message="视频画面下载失败") from exc
+        if not info:
+            raise DownloadError("missing video metadata", user_message="未能获取视频信息")
+        check_info(info)
+        candidates = [
+            path for path in target.glob("source.*")
+            if path.suffix.lower() in {".mp4", ".mkv", ".webm", ".mov", ".avi"}
+            and not re.search(r"\.f\d+\.", path.name)
+        ]
+        if len(candidates) != 1 or not candidates[0].is_file():
+            raise DownloadError("missing merged video", user_message="未能获取可用的视频文件")
+        if candidates[0].stat().st_size > max_size_bytes:
+            raise DownloadError("video size limit", user_message="视频超过视频理解的文件大小上限")
+        return {"file_path": str(candidates[0]), "duration": float(info.get("duration") or 0),
+                "title": str(info.get("title") or "视频总结")}
 
 
 # ──────────────────────────── helpers ──────────────────────────────

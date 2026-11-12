@@ -29,6 +29,7 @@ from .search import SearchService
 from .subscription.manager import SubscriptionManager
 from .subscription.scheduler import CheckScheduler
 from .summarize.orchestrator import SummaryOrchestrator
+from .summarize.video_media import VideoMediaService
 from .transcription.bcut_provider import BCutTranscriber
 from .transcription.pipeline import TranscriptPipeline
 
@@ -103,6 +104,11 @@ class BiliVideoServices:
             else self.llm
         )
         self.zhihu_client = ZhihuClient(config.zhihu_cookie)
+        self.video_llm: LLMProvider = (
+            AstrbotProvider(astrbot_context, provider_id=config.video_summary_provider)
+            if config.video_summary_provider else self.llm
+        )
+        self.video_media = VideoMediaService(self.downloader, data_dir)
 
         # Summary + render
         self.orchestrator = SummaryOrchestrator(
@@ -113,6 +119,8 @@ class BiliVideoServices:
             data_dir=data_dir,
             coolapk_llm=self.coolapk_llm,
             zhihu_llm=self.zhihu_llm,
+            video_llm=self.video_llm,
+            video_media=self.video_media,
         )
 
         # 使用 WkHtmlRenderer（Playwright 驱动）
@@ -161,6 +169,11 @@ class BiliVideoServices:
         )
         self.zhihu_client = ZhihuClient(config.zhihu_cookie)
         self.orchestrator.set_zhihu_llm(self.zhihu_llm)
+        self.video_llm = (
+            AstrbotProvider(self.astrbot_context, provider_id=config.video_summary_provider)
+            if config.video_summary_provider else self.llm
+        )
+        self.orchestrator._video_llm = self.video_llm
 
     # ------------------------------------------------------------------
     # cookie/login helpers used by handlers

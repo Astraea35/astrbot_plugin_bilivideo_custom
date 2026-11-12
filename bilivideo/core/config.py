@@ -192,6 +192,19 @@ class PluginConfig:
     enable_multi_platform: bool = False
     enabled_platforms: tuple[str, ...] = ("B站", "酷安")
     subtitle_langs: tuple[str, ...] = ("zh-Hans", "zh", "zh-CN", "ai-zh", "en", "en-US")
+    # Optional visual video understanding; existing installations stay text-only.
+    video_summary_mode: str = "subtitle"
+    video_summary_provider: str = ""
+    video_summary_model: str = ""
+    video_processing_mode: str = "auto"
+    video_native_transport: str = "auto"
+    video_api_base: str = ""
+    video_api_key: str = ""
+    video_fallback: bool = True
+    video_frame_count: int = 8
+    video_frame_width: int = 768
+    video_max_duration: int = 1800
+    video_max_size_mb: int = 80
     # Coolapk text-post recognition. Empty provider means reuse the default summary LLM.
     coolapk_summary_provider: str = ""
     coolapk_summary_model: str = ""
@@ -331,6 +344,24 @@ class PluginConfig:
             ),
             subtitle_langs=_split_csv(flat.get("subtitle_langs"))
             or ("zh-Hans", "zh", "zh-CN", "ai-zh", "en", "en-US"),
+            video_summary_mode=_coerce_str(
+                flat.get("video_summary_mode"), "subtitle", options=("subtitle", "frames", "native")
+            ),
+            video_summary_provider=_coerce_str(flat.get("video_summary_provider"), ""),
+            video_summary_model=_coerce_str(flat.get("video_summary_model"), ""),
+            video_processing_mode=_coerce_str(
+                flat.get("video_processing_mode"), "auto", options=("auto", "static", "agentic")
+            ),
+            video_native_transport=_coerce_str(
+                flat.get("video_native_transport"), "auto", options=("auto", "generate_content", "interactions")
+            ),
+            video_api_base=_coerce_url_base(flat.get("video_api_base")),
+            video_api_key=_coerce_str(flat.get("video_api_key"), ""),
+            video_fallback=_coerce_bool(flat.get("video_fallback"), True),
+            video_frame_count=_coerce_int(flat.get("video_frame_count"), 8, lo=1, hi=24),
+            video_frame_width=_coerce_int(flat.get("video_frame_width"), 768, lo=320, hi=1536),
+            video_max_duration=_coerce_int(flat.get("video_max_duration"), 1800, lo=10, hi=10800),
+            video_max_size_mb=_coerce_int(flat.get("video_max_size_mb"), 80, lo=1, hi=512),
             coolapk_summary_provider=_coerce_str(flat.get("coolapk_summary_provider"), ""),
             coolapk_summary_model=_coerce_str(flat.get("coolapk_summary_model"), ""),
             zhihu_cookie=_coerce_str(flat.get("zhihu_cookie"), ""),
