@@ -1,3 +1,4 @@
+.field select[multiple] { height: auto; min-height: 140px; }
 :root {
   --bg: #f5f7fb;
   --surface: rgba(255, 255, 255, 0.9);

@@ -17,7 +17,7 @@ from astrbot.api.star import Context, Star, StarTools
 
 from .bilivideo import handlers
 from .bilivideo.bili_services import BiliVideoServices
-from .bilivideo.core.config import PluginConfig, normalize_list_for_json
+from .bilivideo.core.config import PluginConfig, normalize_list_for_json, normalize_provider_ids
 from .bilivideo.core.data_manager import DataManager
 from .bilivideo.core.logging import get_logger
 from .bilivideo.handlers.scheduled_push import push_callback
@@ -45,20 +45,22 @@ def _migrate_and_sanitize_config(config_dict: dict) -> bool:
         "trigger_keywords": "detect",
         "subtitle_langs": "summary",
         "enabled_platforms": "platforms",
+        "backup_provider_id": "llm",
     }
 
     for field, group in list_fields.items():
+        normalize = normalize_provider_ids if field == "backup_provider_id" else normalize_list_for_json
         # Check in nested group
         if group in config_dict and isinstance(config_dict[group], dict) and field in config_dict[group]:
             val = config_dict[group][field]
-            normalized = normalize_list_for_json(val)
+            normalized = normalize(val)
             if val != normalized:
                 config_dict[group][field] = normalized
                 modified = True
         # Check at root level
         if field in config_dict:
             val = config_dict[field]
-            normalized = normalize_list_for_json(val)
+            normalized = normalize(val)
             if val != normalized:
                 config_dict[field] = normalized
                 modified = True

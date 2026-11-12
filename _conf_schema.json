@@ -30,15 +30,15 @@
     "description": "🤖 LLM 模型",
     "type": "object",
     "items": {
-      "llm_provider": { "type": "string", "default": "astrbot", "options": ["astrbot", "astrbot_custom", "openai_compatible"], "description": "提供者", "hint": "astrbot=AstrBot 当前默认模型 / astrbot_custom=自选 AstrBot 内已有的第三方平台 / openai_compatible=自定义 OpenAI 兼容 API" },
+      "llm_provider": { "type": "string", "default": "astrbot", "options": ["astrbot", "astrbot_custom", "openai_compatible"], "labels": ["AstrBot 当前默认模型", "AstrBot 指定平台", "自定义 OpenAI 兼容接口"], "description": "提供者", "hint": "选择使用 AstrBot 当前默认模型、已添加的指定平台，或单独配置 OpenAI 兼容接口。" },
       "astrbot_provider_id": { "type": "string", "default": "", "description": "选择 AstrBot 平台", "hint": "当提供者选择 astrbot_custom 时，在此手动填写或选择你在系统内置添加的平台 ID（如 deepseek, openai 等）", "_special": "select_provider" },
       "llm_provider_id": { "type": "string", "default": "", "description": "指定内置模型 ID", "hint": "仅 astrbot 模式生效。留空=用 AstrBot 当前模型；填 provider ID 可指定。" },
       "llm_api_base": { "type": "string", "default": "", "description": "API Base URL", "hint": "例如 https://api.openai.com/v1 (仅在 openai_compatible 模式下生效)" },
       "llm_api_key": { "type": "string", "default": "", "description": "API Key", "hint": "OpenAI 兼容 API 的 Bearer Token" },
       "llm_model": { "type": "string", "default": "gpt-4o-mini", "description": "模型名称", "hint": "如 gpt-4o-mini / deepseek-chat" },
       "llm_temperature": { "type": "float", "default": 0.4, "description": "Temperature", "hint": "总结任务推荐 0.2 ~ 0.6" },
-      "enable_fallback": { "type": "bool", "default": false, "description": "启用故障备用重试", "hint": "开启后，当主力大模型调用报错、额度耗尽或发生超时，程序会自动调用下方的备用大模型进行二次总结重试" },
-      "backup_provider_id": { "type": "string", "default": "", "description": "备用模型", "hint": "通过 AstrBot 原生模型选择器选择已配置的对话模型；备用调用使用该模型在 AstrBot 中的配置，不继承主模型名称。留空则不启用备用调用。", "_special": "select_provider" },
+      "enable_fallback": { "type": "bool", "default": false, "description": "启用故障备用重试", "hint": "开启后，主模型调用失败时，按下方所选顺序依次尝试备用模型，成功后停止。" },
+      "backup_provider_id": { "type": "list", "items": { "type": "string" }, "default": [], "description": "备用模型", "hint": "支持多选，可在已选列表中调整顺序。主模型失败后按顺序尝试，每个模型使用其在 AstrBot 中的配置，不继承主模型名称。留空则不启用备用调用；修改后重载插件生效。", "_special": "select_providers" },
       "bangumi_token": { "type": "string", "default": "", "description": "Bangumi Access Token", "hint": "可选。调用 Bangumi API 时需要授权时填写。" }
     }
   },

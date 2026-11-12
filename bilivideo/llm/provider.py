@@ -1,11 +1,11 @@
-"""LLM provider abstraction with Single Fallback Proxy Wrapper Support."""
+"""LLM provider abstraction with ordered fallback models."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Protocol, Any
 
-from ..core.config import PluginConfig
+from ..core.config import PluginConfig, normalize_provider_ids
 from ..core.exceptions import LLMError
 
 
@@ -47,7 +47,7 @@ def build_provider(
     provider_id: str = "",
     raw_config: dict | None = None
 ) -> LLMProvider:
-    """Return a concrete provider instance based on the config with single fallback routing."""
+    """Return a provider with optional ordered AstrBot fallback models."""
 
     raw_config_dict = raw_config or {}
     raw_llm_block = raw_config_dict.get("llm", {}) if isinstance(raw_config_dict.get("llm"), dict) else raw_config_dict
@@ -79,23 +79,24 @@ def build_provider(
             final_provider_id = provider_id
         primary = AstrbotProvider(astrbot_context, provider_id=final_provider_id)
 
-    # 2. 🌟 终极自愈重试：单平台故障兜底降级代理（彻底告别多选死锁冲突版）
     enable_fallback = bool(raw_llm_block.get("enable_fallback", False))
-    backup_id = str(raw_llm_block.get("backup_provider_id", "")).strip()
+    backup_ids = [
+        backup_id for backup_id in normalize_provider_ids(raw_llm_block.get("backup_provider_id"))
+        if backup_id != getattr(primary, "provider_id", "")
+    ]
 
-    if enable_fallback and backup_id:
+    if enable_fallback and backup_ids:
         from .astrbot_provider import AstrbotProvider
         from ..core.logging import get_logger
         
         fallback_logger = get_logger("BiliVideo/LLM/Fallback")
-        # 实例化唯一的备用 AstrBot 稳定驱动通道
-        fallback_provider = AstrbotProvider(astrbot_context, provider_id=backup_id)
+        fallback_providers = [AstrbotProvider(astrbot_context, provider_id=backup_id) for backup_id in backup_ids]
         
         class FallbackLLMProvider:
-            """内部容灾包装器：单级故障自愈重试拦截机"""
-            def __init__(self, primary_prov: LLMProvider, fallback_prov: LLMProvider, log: Any) -> None:
+            """Try each selected backup once, stopping at the first success."""
+            def __init__(self, primary_prov: LLMProvider, fallbacks: list[AstrbotProvider], log: Any) -> None:
                 self.primary = primary_prov
-                self.fallback = fallback_prov
+                self.fallbacks = fallbacks
                 self.logger = log
 
             async def chat(
@@ -107,7 +108,6 @@ def build_provider(
                 model: str = "",
             ) -> str:
                 try:
-                    # 优先冲主力模型
                     return await self.primary.chat(
                         prompt,
                         session_id=session_id,
@@ -115,25 +115,24 @@ def build_provider(
                         model=model,
                     )
                 except Exception as exc:
-                    # 主力模型崩溃时，静默捕获并启动兜底重试
-                    self.logger.warning(
-                        f"⚠️ 主力大模型请求异常: {exc}。正在启动动态容灾机制，"
-                        f"自动切换到备用 AstrBot 模型通道【{backup_id}】执行二次重试..."
-                    )
-                    try:
-                        # Keep the backup model's own AstrBot configuration.
-                        return await self.fallback.chat(
-                            prompt,
-                            session_id=session_id,
-                            image_urls=image_urls,
+                    errors = [f"主力模型报错: {exc}"]
+                    last_error = exc
+                    for fallback in self.fallbacks:
+                        self.logger.warning(
+                            f"⚠️ 模型请求失败: {last_error}。正在尝试备用模型【{fallback.provider_id}】..."
                         )
-                    except Exception as fallback_exc:
-                        raise LLMError(
-                            f"❌ 容灾失败：主力模型与唯一的备用兜底模型均告失败。\n"
-                            f"主力模型报错: {exc}\n"
-                            f"备用模型【{backup_id}】报错: {fallback_exc}"
-                        ) from fallback_exc
+                        try:
+                            # Keep each backup model's own AstrBot configuration.
+                            return await fallback.chat(
+                                prompt,
+                                session_id=session_id,
+                                image_urls=image_urls,
+                            )
+                        except Exception as fallback_exc:
+                            errors.append(f"备用模型【{fallback.provider_id}】报错: {fallback_exc}")
+                            last_error = fallback_exc
+                    raise LLMError("❌ 主力模型与所有备用模型均失败。\n" + "\n".join(errors)) from last_error
 
-        return FallbackLLMProvider(primary, fallback_provider, fallback_logger)
+        return FallbackLLMProvider(primary, fallback_providers, fallback_logger)
 
     return primary

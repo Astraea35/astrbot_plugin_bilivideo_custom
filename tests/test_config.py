@@ -2,7 +2,24 @@
 
 from __future__ import annotations
 
-from bilivideo.core.config import PluginConfig
+import pytest
+
+from bilivideo.core.config import PluginConfig, normalize_provider_ids
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        (" backup ", ["backup"]),
+        (["backup-2", " backup-1 ", "backup-2", "", None, 123], ["backup-2", "backup-1"]),
+        (["a", "b", "c", "d"], ["a", "b", "c", "d"]),
+        ([], []),
+        (None, []),
+        ({"backup": True}, []),
+    ],
+)
+def test_backup_provider_ids_preserve_order_and_legacy_values(raw, expected) -> None:
+    assert normalize_provider_ids(raw) == expected
 
 
 def test_defaults() -> None:

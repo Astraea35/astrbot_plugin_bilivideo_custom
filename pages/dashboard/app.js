@@ -12,8 +12,8 @@ const fieldGroups = {
     { key: "llm_api_key", label: "API Key", hint: "留空保持当前密钥", type: "password", secret: true },
     { key: "llm_model", label: "模型名称", type: "text" },
     { key: "llm_temperature", label: "Temperature", type: "number", step: "0.1", min: "0", max: "2" },
-    { key: "enable_fallback", label: "启用故障备用重试", hint: "主模型失败时自动调用备用模型", type: "switch" },
-    { key: "backup_provider_id", label: "备用模型", hint: "选择 AstrBot 中已配置的对话模型", type: "select", options: [["", "请选择备用模型"]] },
+    { key: "enable_fallback", label: "启用故障备用重试", hint: "主模型失败时按顺序尝试备用模型", type: "switch" },
+    { key: "backup_provider_id", label: "备用模型", hint: "按 Ctrl / Command 多选；按列表顺序尝试，可在 AstrBot 插件配置页调整顺序。修改后重载插件生效。", type: "select", multiple: true, options: [] },
     { key: "bangumi_token", label: "Bangumi Access Token", hint: "可选，留空保持当前令牌", type: "password", secret: true },
   ],
   aiDynamic: [
@@ -105,7 +105,7 @@ function renderField(def) {
   }
   let control = "";
   if (def.type === "select") {
-    control = `<select id="${id}" data-config="${def.key}" data-kind="select">${def.options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select>`;
+    control = `<select id="${id}" data-config="${def.key}" data-kind="select" ${def.multiple ? 'multiple size="5"' : ""}>${def.options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select>`;
   } else if (def.type === "textarea") {
     control = `<textarea id="${id}" data-config="${def.key}" data-kind="textarea" ${def.list ? "data-list=\"true\"" : ""}></textarea>`;
   } else {
@@ -162,20 +162,24 @@ function setFieldValue(key, value) {
   const element = document.querySelector(`[data-config="${key}"]`);
   if (!element) return;
   if (element.dataset.kind === "switch") element.checked = Boolean(value);
+  else if (element.multiple) {
+    const selected = Array.isArray(value) ? value : value ? [value] : [];
+    [...element.options].forEach((option) => { option.selected = selected.includes(option.value); });
+  }
   else element.value = Array.isArray(value) ? value.join(", ") : value ?? "";
 }
 
 function applyConfig(config) { Object.entries(config || {}).forEach(([key, value]) => setFieldValue(key, value)); }
 
-function updateBackupProviders(providers, selectedId) {
+function updateBackupProviders(providers, selectedIds) {
   const selector = $("#field-backup_provider_id");
   if (!selector) return;
-  selector.replaceChildren(new Option("请选择备用模型", ""));
-  for (const { id, model } of providers || []) {
-    selector.add(new Option(model ? `${id} (${model})` : id, id));
-  }
-  if (selectedId && ![...selector.options].some((option) => option.value === selectedId)) {
-    selector.add(new Option(`${selectedId}（当前不可用）`, selectedId));
+  const selected = Array.isArray(selectedIds) ? selectedIds : selectedIds ? [selectedIds] : [];
+  const models = new Map((providers || []).map(({ id, model }) => [id, model]));
+  selector.replaceChildren();
+  for (const id of new Set([...selected, ...models.keys()])) {
+    const label = models.has(id) ? (models.get(id) ? `${id} (${models.get(id)})` : id) : `${id}（当前不可用）`;
+    selector.add(new Option(label, id, false, selected.includes(id)));
   }
 }
 
@@ -187,6 +191,8 @@ function collectSettings() {
       settings[key] = element.checked;
     } else if (element.dataset.kind === "number") {
       settings[key] = element.value === "" ? "" : Number(element.value);
+    } else if (element.multiple) {
+      settings[key] = [...element.selectedOptions].map((option) => option.value);
     } else if (element.dataset.list === "true") {
       const raw = element.value.replace(/，/g, ",").replace(/；/g, ",").replace(/;/g, ",");
       settings[key] = raw.split(",").map((s) => s.trim()).filter(Boolean);

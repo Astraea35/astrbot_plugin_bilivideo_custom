@@ -26,8 +26,9 @@ async def test_openai_compatible_without_credentials_is_disabled() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("nested", [False, True])
-async def test_fallback_uses_native_provider_config_without_primary_model(nested: bool) -> None:
-    llm_config = {"enable_fallback": True, "backup_provider_id": "backup"}
+@pytest.mark.parametrize("backup", ["backup", ["backup"]])
+async def test_fallback_uses_native_provider_config_without_primary_model(nested: bool, backup) -> None:
+    llm_config = {"enable_fallback": True, "backup_provider_id": backup}
     raw_config = {"llm": llm_config} if nested else llm_config
     generate = AsyncMock(side_effect=[RuntimeError("primary unavailable"), "backup result"])
     provider = build_provider(
@@ -64,7 +65,7 @@ async def test_fallback_uses_native_provider_config_without_primary_model(nested
 
 @pytest.mark.asyncio
 async def test_primary_success_does_not_call_backup() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": "backup"}}
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": ["backup", "backup-2"]}}
     generate = AsyncMock(return_value="primary result")
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
@@ -79,8 +80,8 @@ async def test_primary_success_does_not_call_backup() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("enable_fallback,backup_id", [(False, "backup"), (True, "")])
-async def test_disabled_or_unselected_backup_is_not_called(enable_fallback: bool, backup_id: str) -> None:
+@pytest.mark.parametrize("enable_fallback,backup_id", [(False, "backup"), (False, ["backup"]), (True, ""), (True, [])])
+async def test_disabled_or_unselected_backup_is_not_called(enable_fallback: bool, backup_id) -> None:
     raw_config = {"llm": {"enable_fallback": enable_fallback, "backup_provider_id": backup_id}}
     generate = AsyncMock(side_effect=RuntimeError("primary unavailable"))
     provider = build_provider(
@@ -130,3 +131,60 @@ async def test_cancellation_does_not_call_backup() -> None:
         await provider.chat("hello")
 
     assert generate.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_multiple_backups_run_in_order_and_stop_on_success() -> None:
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": [
+        "primary", " backup-1 ", "backup-1", "", "backup-2", "backup-3",
+    ]}}
+    generate = AsyncMock(side_effect=[RuntimeError("primary down"), RuntimeError("backup-1 down"), "success"])
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    assert await provider.chat("hello", session_id="session", image_urls=("image",), model="main-model") == "success"
+    assert [args.kwargs["chat_provider_id"] for args in generate.await_args_list] == ["primary", "backup-1", "backup-2"]
+    for args in generate.await_args_list[1:]:
+        assert args.kwargs == {
+            "chat_provider_id": args.kwargs["chat_provider_id"],
+            "prompt": "hello", "session_id": "session", "image_urls": ["image"],
+        }
+
+
+@pytest.mark.asyncio
+async def test_all_backups_failing_preserves_each_error() -> None:
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": ["backup-1", "backup-2"]}}
+    generate = AsyncMock(side_effect=[RuntimeError("primary down"), RuntimeError("first down"), RuntimeError("second down")])
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    with pytest.raises(LLMError) as exc:
+        await provider.chat("hello")
+    for message in ("primary down", "backup-1", "first down", "backup-2", "second down"):
+        assert message in str(exc.value)
+    assert generate.await_count == 3
+    assert "second down" in str(exc.value.__cause__)
+
+
+@pytest.mark.asyncio
+async def test_backup_cancellation_does_not_try_later_models() -> None:
+    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": ["backup-1", "backup-2"]}}
+    generate = AsyncMock(side_effect=[RuntimeError("primary down"), asyncio.CancelledError()])
+    provider = build_provider(
+        PluginConfig.from_mapping(raw_config),
+        astrbot_context=SimpleNamespace(llm_generate=generate),
+        provider_id="primary",
+        raw_config=raw_config,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await provider.chat("hello")
+    assert generate.await_count == 2

@@ -16,7 +16,7 @@ from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 
-from .core.config import PluginConfig, normalize_list_for_json
+from .core.config import PluginConfig, normalize_list_for_json, normalize_provider_ids
 
 try:
     from astrbot.api.web import PluginUploadFile, error_response, file_response, json_response, request
@@ -57,7 +57,7 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
 CONFIG_FIELDS = {field_name for group in CONFIG_GROUPS.values() for field_name in group}
 SECRET_FIELDS = {"llm_api_key", "bangumi_token", "zhihu_cookie"}
 LIST_FIELDS = {"subtitle_langs", "trigger_keywords", "access_list", "manual_summary_list", "auto_summary_list", "enabled_platforms"}
-DEFAULT_EXTRA_VALUES: dict[str, Any] = {"astrbot_provider_id": "", "enable_fallback": False, "backup_provider_id": "", "background_image": ""}
+DEFAULT_EXTRA_VALUES: dict[str, Any] = {"astrbot_provider_id": "", "enable_fallback": False, "backup_provider_id": [], "background_image": ""}
 
 IMAGE_MIME_BY_EXTENSION = {
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
@@ -232,6 +232,7 @@ class PluginWebUI:
                 values.setdefault(field_name, _json_value(DEFAULT_EXTRA_VALUES.get(field_name, "")))
         for field_name in LIST_FIELDS:
             values[field_name] = _csv_values(values.get(field_name))
+        values["backup_provider_id"] = normalize_provider_ids(values.get("backup_provider_id"))
         secret_present = {field_name: bool(str(flattened.get(field_name, "")).strip()) for field_name in SECRET_FIELDS}
         for field_name in SECRET_FIELDS:
             values[field_name] = ""
@@ -297,7 +298,9 @@ class PluginWebUI:
                 continue
             if field_name in SECRET_FIELDS and not str(value or "").strip() and field_name not in clear_secrets:
                 continue
-            if field_name in LIST_FIELDS:
+            if field_name == "backup_provider_id":
+                value = normalize_provider_ids(value)
+            elif field_name in LIST_FIELDS:
                 value = normalize_list_for_json(value)
             group = next(group for group, fields_in_group in CONFIG_GROUPS.items() if field_name in fields_in_group)
             if isinstance(candidate.get(group), dict):
@@ -364,7 +367,7 @@ class PluginWebUI:
                 "saved": True,
                 "config": {key: _json_value(value) for key, value in asdict(parsed).items()},
                 "restart_required": bool(
-                    any(key in settings for key in {"llm_provider", "llm_api_base", "llm_api_key", "llm_model"})
+                    any(key in settings for key in {"llm_provider", "llm_api_base", "llm_api_key", "llm_model", "enable_fallback", "backup_provider_id"})
                 ),
             }
         )

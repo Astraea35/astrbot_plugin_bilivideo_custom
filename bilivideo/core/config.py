@@ -123,6 +123,15 @@ def normalize_list(raw: Any, default: tuple[str, ...] = ()) -> tuple[str, ...]:
     return default
 
 
+def normalize_provider_ids(raw: Any) -> list[str]:
+    """Preserve provider ID order, accepting the legacy single-ID setting."""
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, (list, tuple)):
+        return []
+    return list(dict.fromkeys(value.strip() for value in raw if isinstance(value, str) and value.strip()))
+
+
 def normalize_list_for_json(raw: Any, default: list[str] | None = None) -> list[str]:
     """Return a list[str] suitable for saving into json/self.config."""
     res = normalize_list(raw, default=tuple(default or []))
