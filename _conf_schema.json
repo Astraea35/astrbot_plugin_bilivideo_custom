@@ -31,13 +31,9 @@
     "description": "🤖 智能模型",
     "type": "object",
     "items": {
-      "llm_provider": { "type": "string", "default": "astrbot", "options": ["astrbot", "astrbot_custom", "openai_compatible"], "labels": ["AstrBot 当前默认模型", "AstrBot 指定平台", "自定义 OpenAI 兼容接口"], "description": "提供者", "hint": "选择使用 AstrBot 当前默认模型、已添加的指定平台，或单独配置 OpenAI 兼容接口。" },
+      "llm_provider": { "type": "string", "default": "astrbot", "options": ["astrbot", "astrbot_custom"], "labels": ["AstrBot 当前默认模型", "AstrBot 指定平台"], "description": "提供者", "hint": "选择使用 AstrBot 当前默认模型或已添加的指定平台；接口地址、密钥和生成参数统一在 AstrBot 中配置。" },
       "astrbot_provider_id": { "type": "string", "default": "", "description": "选择 AstrBot 平台", "hint": "提供者选择「AstrBot 指定平台」时，在此选择已添加的模型，或填写平台标识（如 deepseek、openai）。", "_special": "select_provider" },
       "llm_provider_id": { "type": "string", "default": "", "description": "指定内置模型标识", "hint": "仅「AstrBot 当前默认模型」模式生效。留空使用当前默认模型，填写模型标识可指定其他模型。" },
-      "llm_api_base": { "type": "string", "default": "", "description": "模型接口地址", "hint": "仅「自定义 OpenAI 兼容接口」模式生效，例如 https://api.openai.com/v1。" },
-      "llm_api_key": { "type": "string", "default": "", "description": "模型接口密钥", "hint": "填写模型服务提供的接口访问密钥。" },
-      "llm_model": { "type": "string", "default": "gpt-4o-mini", "description": "模型名称", "hint": "如 gpt-4o-mini / deepseek-chat" },
-      "llm_temperature": { "type": "float", "default": 0.4, "description": "生成温度（随机性）", "hint": "数值越低，输出越稳定；数值越高，表达越灵活。总结任务推荐 0.2～0.6。" },
       "enable_fallback": { "type": "bool", "default": false, "description": "启用故障备用重试", "hint": "开启后，主模型调用失败时，按下方所选顺序依次尝试备用模型，成功后停止。" },
       "backup_provider_id": { "type": "list", "items": { "type": "string" }, "default": [], "description": "备用模型", "hint": "支持多选，可在已选列表中调整顺序。主模型失败后按顺序尝试，每个模型使用其在 AstrBot 中的配置，不继承主模型名称。留空则不启用备用调用；修改后重载插件生效。", "_special": "select_providers" },
       "bangumi_token": { "type": "string", "default": "", "description": "番组计划访问令牌", "hint": "可选，访问番组计划（Bangumi）需要授权的接口时填写。" }

@@ -16,7 +16,6 @@ from ..core.config import PluginConfig
 from ..core.exceptions import BiliVideoError
 from ..core.logging import get_logger
 from .astrbot_provider import AstrbotProvider
-from .openai_provider import OpenAICompatibleProvider
 
 logger = get_logger("BiliVideo/Video")
 
@@ -57,9 +56,6 @@ def resolve_gemini_settings(provider: object, config: PluginConfig) -> GeminiVid
         key = selected.get_current_key() or ""
         headers = dict(getattr(selected, "request_headers", {}) or {})
         proxy = str(raw.get("proxy") or "")
-    elif isinstance(provider, OpenAICompatibleProvider):
-        base = provider._url.rsplit("/chat/completions", 1)[0]
-        key, model = provider._api_key, provider._model
     if config.video_api_base:
         # An explicit override may point to another service; do not send the old service's credentials there.
         same_origin = urlsplit(base)[:2] == urlsplit(config.video_api_base)[:2]

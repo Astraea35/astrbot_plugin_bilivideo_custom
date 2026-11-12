@@ -102,7 +102,7 @@ QUALITY_TO_KBPS: Final[dict[str, str]] = {
 }
 
 NOTE_STYLES: Final[tuple[str, ...]] = ("concise", "detailed", "professional")
-LLM_PROVIDERS: Final[tuple[str, ...]] = ("astrbot", "openai_compatible")
+LLM_PROVIDERS: Final[tuple[str, ...]] = ("astrbot", "astrbot_custom")
 ACCESS_MODES: Final[tuple[str, ...]] = ("all", "private_only", "whitelist", "blacklist")
 
 WBI_CACHE_TTL_SECONDS: Final[int] = 86_400  # 24h

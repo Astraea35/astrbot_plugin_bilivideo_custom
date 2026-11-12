@@ -55,13 +55,6 @@ def _coerce_int(raw: Any, default: int, *, lo: int | None = None, hi: int | None
     return value
 
 
-def _coerce_float(raw: Any, default: float) -> float:
-    try:
-        return float(raw) if raw not in (None, "") else default
-    except (TypeError, ValueError):
-        return default
-
-
 def _coerce_str(raw: Any, default: str, *, options: tuple[str, ...] | None = None) -> str:
     if not isinstance(raw, str) or not raw.strip():
         return default
@@ -174,10 +167,6 @@ class PluginConfig:
     # llm ----------------------------------------------------------------
     llm_provider: str = "astrbot"
     llm_provider_id: str = ""
-    llm_api_base: str = ""
-    llm_api_key: str = ""
-    llm_model: str = "gpt-4o-mini"
-    llm_temperature: float = 0.4
 
     # summary ------------------------------------------------------------
     note_style: str = "professional"
@@ -315,10 +304,6 @@ class PluginConfig:
             user_cooldown_seconds=_coerce_int(flat.get("user_cooldown_seconds"), 8, lo=0, hi=600),
             llm_provider=_coerce_str(flat.get("llm_provider"), "astrbot", options=LLM_PROVIDERS),
             llm_provider_id=_coerce_str(flat.get("llm_provider_id"), ""),
-            llm_api_base=_coerce_url_base(flat.get("llm_api_base")),
-            llm_api_key=_coerce_str(flat.get("llm_api_key"), ""),
-            llm_model=_coerce_str(flat.get("llm_model"), "gpt-4o-mini"),
-            llm_temperature=_coerce_float(flat.get("llm_temperature"), 0.4),
             note_style=_coerce_str(flat.get("note_style"), "professional", options=NOTE_STYLES),
             enable_link=_coerce_bool(flat.get("enable_link"), True),
             enable_summary=_coerce_bool(flat.get("enable_summary"), True),
@@ -438,10 +423,3 @@ class PluginConfig:
             ),
             summary_command_list=_split_csv(flat.get("summary_command_list")),
         )
-
-    @property
-    def is_openai_compatible(self) -> bool:
-        return self.llm_provider == "openai_compatible"
-
-    def has_llm_credentials(self) -> bool:
-        return bool(self.llm_api_base and self.llm_api_key)

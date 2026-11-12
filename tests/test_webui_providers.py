@@ -72,3 +72,24 @@ async def test_state_normalizes_legacy_template_selection(tmp_path, monkeypatch,
     state = await ui.get_state()
 
     assert state["config"]["renderer_template"] == "template_1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested", [False, True])
+async def test_legacy_openai_fields_are_not_exposed_or_editable(tmp_path, monkeypatch, nested: bool) -> None:
+    monkeypatch.setattr("bilivideo.webui.json_response", lambda payload: payload)
+    block = {
+        "llm_provider": "openai_compatible", "llm_api_base": "https://unused.example/v1",
+        "llm_api_key": "old-secret", "llm_model": "old-model", "llm_temperature": 0.4,
+    }
+    config = {"llm": block} if nested else block
+    ui = PluginWebUI(SimpleNamespace(config=config), object(), SimpleNamespace(), str(tmp_path))
+
+    state = await ui.get_state()
+
+    assert state["config"]["llm_provider"] == "astrbot"
+    removed = {"llm_api_base", "llm_api_key", "llm_model", "llm_temperature"}
+    assert not removed & state["config"].keys()
+    assert not removed & state["secret_present"].keys()
+    assert "old-secret" not in repr(state)
+    assert ui._candidate_with_settings({"llm_api_key": "replacement"}) == config

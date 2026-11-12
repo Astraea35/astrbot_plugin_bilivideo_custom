@@ -10,7 +10,6 @@ from ..api.endpoints import clear_video_info_cache, video_info_cache_size
 from ..api.wbi import clear_wbi_cache
 from ..access.control import is_admin
 from ..core.logging import get_logger
-from ..llm.provider import DisabledLLMProvider
 from ..services import BiliVideoServices
 
 logger = get_logger("BiliVideo/Status")
@@ -48,55 +47,25 @@ async def handle_status(services: BiliVideoServices, event: object) -> AsyncIter
         except Exception:
             ffmpeg = "❌"
 
-    if isinstance(services.llm, DisabledLLMProvider):
-        llm_state = "未配置"
-    elif cfg.is_openai_compatible:
-        llm_state = cfg.llm_model
-    else:
-        # 从 services.llm 实例中获取真实模型
-        llm_instance = services.llm
-        model_display = "astrbot 当前模型"
-
-        try:
-            # OpenAICompatibleProvider
-            if hasattr(llm_instance, "_model"):
-                model_display = llm_instance._model
-            # AstrbotProvider 且有固定 provider_id
-            elif hasattr(llm_instance, "provider_id") and llm_instance.provider_id:
-                provider_id = llm_instance.provider_id
-                model_display = f"astrbot:{provider_id}"
-                # 尝试获取具体模型名称
-                ctx = services.astrbot_context
-                if ctx and hasattr(ctx, "get_provider_by_id"):
-                    provider_obj = ctx.get_provider_by_id(provider_id)
-                    if provider_obj and hasattr(provider_obj, "get_model"):
-                        model_name = provider_obj.get_model()
-                        if model_name:
-                            model_display = f"astrbot:{provider_id} ({model_name})"
-            # FallbackLLMProvider 包装器
-            elif hasattr(llm_instance, "primary"):
-                primary = llm_instance.primary
-                if hasattr(primary, "provider_id") and primary.provider_id:
-                    model_display = f"astrbot:{primary.provider_id}"
-                elif hasattr(primary, "_model"):
-                    model_display = primary._model
-            else:
-                # 兜底：从 AstrBot 全局上下文获取（保持兼容）
-                ctx = services.astrbot_context
-                if ctx and hasattr(ctx, "get_using_provider"):
-                    provider = ctx.get_using_provider()
-                    if provider:
-                        if hasattr(provider, "get_model"):
-                            model_name = provider.get_model()
-                            if model_name:
-                                model_display = f"astrbot ({model_name})"
-                        elif hasattr(provider, "meta") and hasattr(provider.meta(), "id"):
-                            provider_id = provider.meta().id
-                            model_display = f"astrbot (provider: {provider_id})"
-        except Exception as e:
-            services.logger.debug(f"获取模型信息失败: {e}")
-
-        llm_state = model_display
+    llm_instance = getattr(services.llm, "primary", services.llm)
+    provider_id = getattr(llm_instance, "provider_id", "")
+    llm_state = f"astrbot:{provider_id}" if provider_id else "astrbot 当前模型"
+    try:
+        ctx = services.astrbot_context
+        provider = None
+        if ctx and provider_id and hasattr(ctx, "get_provider_by_id"):
+            provider = ctx.get_provider_by_id(provider_id)
+        elif ctx and hasattr(ctx, "get_using_provider"):
+            provider = ctx.get_using_provider()
+        if provider:
+            if hasattr(provider, "get_model"):
+                model_name = provider.get_model()
+                if model_name:
+                    llm_state = f"astrbot:{provider_id} ({model_name})" if provider_id else f"astrbot ({model_name})"
+            elif hasattr(provider, "meta") and hasattr(provider.meta(), "id"):
+                llm_state = f"astrbot (provider: {provider.meta().id})"
+    except Exception as e:
+        services.logger.debug(f"获取模型信息失败: {e}")
 
     yt_cookies = "有" if services.youtube_cookies.has() else "无"
     multi_state = f"{', '.join(cfg.enabled_platforms) or '无'} (YT cookies:{yt_cookies})"

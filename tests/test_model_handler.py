@@ -109,10 +109,11 @@ async def test_reset_restores_default() -> None:
 
 
 @pytest.mark.asyncio
-async def test_openai_mode_is_not_applicable() -> None:
+async def test_legacy_openai_mode_can_use_astrbot_model_command() -> None:
     config = PluginConfig.from_mapping(
         {"llm_provider": "openai_compatible", "llm_api_base": "https://x/v1", "llm_api_key": "k"}
     )
     services = _Services(config, [_Provider("ds", "deepseek-chat")])
     out = await _collect(handle_model(services, _Event("/总结模型")))  # type: ignore[arg-type]
-    assert "openai_compatible" in out[0]
+    assert "可用内置模型" in out[0]
+    assert "ds" in out[0]

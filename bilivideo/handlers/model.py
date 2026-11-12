@@ -23,13 +23,6 @@ async def handle_model(services: BiliVideoServices, event: object) -> AsyncItera
         yield event.plain_result("⛔ 此命令仅限 AstrBot 管理员使用")  # type: ignore[attr-defined]
         return
 
-    if services.config.is_openai_compatible:
-        yield event.plain_result(  # type: ignore[attr-defined]
-            "ℹ️ 当前为 openai_compatible 模式,/总结模型 仅在 astrbot 模式可用。\n"
-            "如需切换内置模型,请将 llm_provider 设为 astrbot。"
-        )
-        return
-
     context = services.astrbot_context
     if context is None or not hasattr(context, "get_all_providers"):
         yield event.plain_result("❌ 无法访问 AstrBot 模型列表")  # type: ignore[attr-defined]

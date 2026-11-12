@@ -1,3 +1,5 @@
+v2.4.27：移除插件独立的自定义 OpenAI 兼容接口及地址、密钥、模型名称和温度配置，统一使用 AstrBot 当前默认模型或指定平台，保留备用模型切换。旧版自定义接口模式自动回到 AstrBot 默认模式，旧接口字段不再使用或回显；Gemini 原生视频专用配置保留。
+
 v2.4.26：新增可选视频理解，支持字幕＋抽样画面、Gemini 原生视频及自动 / Static / Agentic。默认仍使用字幕总结，原生配置页和插件控制台可切换；渠道不支持时按设置回退并标明实际依据。[配置与使用说明](docs/video-understanding.md)
 
 v2.4.25：原生配置页与插件控制台的固定选项、设置标题及提示说明尽量使用中文；保留实际模型标识和配置值，兼容旧版模板设置。备用模型继续支持多选与按顺序故障切换。
@@ -29,7 +31,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 [![AstrBot](https://img.shields.io/badge/AstrBot-v4.0%2B-blueviolet)](https://astrbot.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.4.26-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.4.27-orange)](CHANGELOG.md)
 
 </div>
 
@@ -87,7 +89,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 - **页面外观**：支持上传自定义背景图，常见位图、SVG、AVIF、TIFF、ICO、JPEG2000 等格式会直接显示或自动转为 PNG。
 - **安全处理**：API Key 和 Cookie 不会回显；SVG 上传会移除脚本与外部资源引用，背景图保存在插件数据目录中。
 
-模型提供者、API 地址和模型名称等设置保存后建议重载插件；普通开关和渲染选项会尽量即时应用。
+模型提供者、指定平台和备用模型等设置保存后建议重载插件；接口地址、密钥和生成参数统一在 AstrBot 中配置。普通开关和渲染选项会尽量即时应用。
 
 ---
 

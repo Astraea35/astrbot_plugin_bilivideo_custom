@@ -75,7 +75,9 @@ def test_trigger_keywords_custom() -> None:
     assert cfg.trigger_keywords == ("abc", "def")
 
 
-def test_openai_compatible_predicate() -> None:
+def test_legacy_openai_config_uses_astrbot_without_custom_fields() -> None:
+    from dataclasses import asdict
+
     cfg = PluginConfig.from_mapping(
         {
             "llm_provider": "openai_compatible",
@@ -83,21 +85,21 @@ def test_openai_compatible_predicate() -> None:
             "llm_api_key": "sk-x",
         }
     )
-    assert cfg.is_openai_compatible
-    assert cfg.has_llm_credentials()
+    assert cfg.llm_provider == "astrbot"
+    assert not {"llm_api_base", "llm_api_key", "llm_model", "llm_temperature"} & asdict(cfg).keys()
 
 
 def test_nested_groups_are_flattened() -> None:
     cfg = PluginConfig.from_mapping(
         {
             "general": {"debug_mode": True, "processing_timeout": 120},
-            "llm": {"llm_provider": "openai_compatible"},
+            "llm": {"llm_provider": "astrbot_custom"},
             "experimental": {"enable_multi_platform": True},
         }
     )
     assert cfg.debug_mode is True
     assert cfg.processing_timeout == 120
-    assert cfg.llm_provider == "openai_compatible"
+    assert cfg.llm_provider == "astrbot_custom"
     assert cfg.enable_multi_platform is True
 
 

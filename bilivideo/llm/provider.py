@@ -23,23 +23,6 @@ class LLMProvider(Protocol):
         ...
 
 
-class DisabledLLMProvider:
-    """Provider placeholder used when startup some conditions aren't met."""
-
-    def __init__(self, user_message: str) -> None:
-        self.user_message = user_message
-
-    async def chat(
-        self,
-        prompt: str,
-        *,
-        session_id: str | None = None,
-        image_urls: Sequence[str] = (),
-        model: str = "",
-    ) -> str:
-        raise LLMError("LLM provider disabled", user_message=self.user_message)
-
-
 def build_provider(
     config: PluginConfig, 
     *, 
@@ -52,32 +35,13 @@ def build_provider(
     raw_config_dict = raw_config or {}
     raw_llm_block = raw_config_dict.get("llm", {}) if isinstance(raw_config_dict.get("llm"), dict) else raw_config_dict
     
-    llm_provider = str(raw_llm_block.get("llm_provider", "astrbot")).strip().lower()
+    from .astrbot_provider import AstrbotProvider
 
-    # 1. 创建主力大模型驱动 (Primary Provider)
-    if llm_provider == "openai_compatible" or getattr(config, "is_openai_compatible", False):
-        from .openai_provider import OpenAICompatibleProvider
-
-        if not config.has_llm_credentials():
-            primary = DisabledLLMProvider(
-                "❌ AI 未配置:请填写 llm_api_base 和 llm_api_key,或切回 AstrBot 内置 LLM"
-            )
-        else:
-            timeout_window = getattr(config, "processing_timeout", 300)
-            primary = OpenAICompatibleProvider(
-                api_base=config.llm_api_base,
-                api_key=config.llm_api_key,
-                model=config.llm_model,
-                temperature=config.llm_temperature,
-                timeout_seconds=timeout_window,
-            )
+    if config.llm_provider == "astrbot_custom":
+        final_provider_id = str(raw_llm_block.get("astrbot_provider_id", "")).strip()
     else:
-        from .astrbot_provider import AstrbotProvider
-        if llm_provider == "astrbot_custom":
-            final_provider_id = str(raw_llm_block.get("astrbot_provider_id", "")).strip()
-        else:
-            final_provider_id = provider_id
-        primary = AstrbotProvider(astrbot_context, provider_id=final_provider_id)
+        final_provider_id = provider_id
+    primary = AstrbotProvider(astrbot_context, provider_id=final_provider_id)
 
     enable_fallback = bool(raw_llm_block.get("enable_fallback", False))
     backup_ids = [
@@ -86,7 +50,6 @@ def build_provider(
     ]
 
     if enable_fallback and backup_ids:
-        from .astrbot_provider import AstrbotProvider
         from ..core.logging import get_logger
         
         fallback_logger = get_logger("BiliVideo/LLM/Fallback")

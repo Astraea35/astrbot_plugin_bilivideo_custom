@@ -5,13 +5,9 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const fieldGroups = {
   aiMain: [
-    { key: "llm_provider", label: "主模型提供者", type: "select", options: [["astrbot", "AstrBot 当前默认模型"], ["astrbot_custom", "AstrBot 指定平台"], ["openai_compatible", "自定义 OpenAI 兼容接口"]] },
+    { key: "llm_provider", label: "主模型提供者", hint: "接口地址、密钥和生成参数统一在 AstrBot 中配置", type: "select", options: [["astrbot", "AstrBot 当前默认模型"], ["astrbot_custom", "AstrBot 指定平台"]] },
     { key: "astrbot_provider_id", label: "AstrBot 平台标识", hint: "例如 deepseek、openai", type: "text" },
     { key: "llm_provider_id", label: "内置模型标识", hint: "留空使用当前默认模型", type: "text" },
-    { key: "llm_api_base", label: "模型接口地址", type: "url" },
-    { key: "llm_api_key", label: "模型接口密钥", hint: "留空保持当前密钥", type: "password", secret: true },
-    { key: "llm_model", label: "模型名称", type: "text" },
-    { key: "llm_temperature", label: "生成温度（随机性）", hint: "数值越低越稳定，总结推荐 0.2～0.6", type: "number", step: "0.1", min: "0", max: "2" },
     { key: "enable_fallback", label: "启用故障备用重试", hint: "主模型失败时按顺序尝试备用模型", type: "switch" },
     { key: "backup_provider_id", label: "备用模型", hint: "按 Ctrl / Command 多选；按列表顺序尝试，可在 AstrBot 插件配置页调整顺序。修改后重载插件生效。", type: "select", multiple: true, options: [] },
     { key: "bangumi_token", label: "番组计划访问令牌", hint: "可选，留空保持当前令牌", type: "password", secret: true },

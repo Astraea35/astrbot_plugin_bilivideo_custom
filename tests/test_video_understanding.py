@@ -26,7 +26,6 @@ from bilivideo.llm.astrbot_provider import AstrbotProvider
 from bilivideo.llm.gemini_video import (
     GeminiVideoProvider, GeminiVideoSettings, NativeVideoResult, VideoCapabilityError, resolve_gemini_settings,
 )
-from bilivideo.llm.openai_provider import OpenAICompatibleProvider
 from bilivideo.summarize.orchestrator import SummaryOrchestrator
 from bilivideo.summarize.video_media import VideoFrame, VideoMedia, VideoMediaService
 from bilivideo.transcription.pipeline import PipelineOutput
@@ -216,7 +215,11 @@ async def test_single_image_adapter_does_not_silently_drop_extra_frames():
 
 
 def test_resolve_native_settings_does_not_guess_reverse_proxy_routes():
-    provider = OpenAICompatibleProvider(api_base="https://proxy.example/v1", api_key="secret", model="gemini-alias", temperature=0.4)
+    selected = SimpleNamespace(
+        provider_config={"type": "openai_chat_completion", "api_base": "https://proxy.example/v1"},
+        get_model=lambda: "gemini-alias", get_current_key=lambda: "secret",
+    )
+    provider = AstrbotProvider(SimpleNamespace(get_using_provider=lambda: selected))
     with pytest.raises(VideoCapabilityError):
         resolve_gemini_settings(provider, PluginConfig())
     same = resolve_gemini_settings(provider, replace(PluginConfig(), video_api_base="https://proxy.example/gemini"))

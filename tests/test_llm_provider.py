@@ -10,18 +10,31 @@ import pytest
 
 from bilivideo.core.config import PluginConfig
 from bilivideo.core.exceptions import LLMError
-from bilivideo.llm.provider import DisabledLLMProvider, build_provider
+from bilivideo.llm.astrbot_provider import AstrbotProvider
+from bilivideo.llm.provider import build_provider
 
 
 @pytest.mark.asyncio
-async def test_openai_compatible_without_credentials_is_disabled() -> None:
-    cfg = PluginConfig.from_mapping({"llm_provider": "openai_compatible"})
-    provider = build_provider(cfg, astrbot_context=None)
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("mode,expected", [("astrbot", ""), ("astrbot_custom", "selected"), ("openai_compatible", "")])
+async def test_provider_modes_use_astrbot_including_legacy_config(nested: bool, mode: str, expected: str) -> None:
+    block = {
+        "llm_provider": mode, "astrbot_provider_id": "selected",
+        "llm_api_base": "https://unused.example/v1", "llm_api_key": "unused-key",
+    }
+    raw_config = {"llm": block} if nested else block
+    chat = AsyncMock(return_value="AstrBot result")
+    context = SimpleNamespace(
+        get_using_provider=lambda: SimpleNamespace(text_chat=chat),
+        llm_generate=chat,
+    )
+    provider = build_provider(PluginConfig.from_mapping(raw_config), astrbot_context=context, raw_config=raw_config)
 
-    assert isinstance(provider, DisabledLLMProvider)
-    with pytest.raises(LLMError) as exc:
-        await provider.chat("hello")
-    assert "AI 未配置" in exc.value.user_message
+    assert isinstance(provider, AstrbotProvider)
+    assert provider.provider_id == expected
+    assert await provider.chat("hello") == "AstrBot result"
+    assert chat.await_count == 1
+    assert chat.await_args.kwargs.get("chat_provider_id", "") == expected
 
 
 @pytest.mark.asyncio

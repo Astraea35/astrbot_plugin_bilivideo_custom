@@ -22,7 +22,7 @@ from .core.logging import get_logger
 from .coolapk import fetch_coolapk_post
 from .zhihu import ZhihuClient
 from .downloader.ytdlp_downloader import YtDlpDownloader
-from .llm.provider import DisabledLLMProvider, LLMProvider, build_provider
+from .llm.provider import LLMProvider, build_provider
 from .llm.astrbot_provider import AstrbotProvider
 from .render.wkhtml_renderer import WkHtmlRenderer
 from .search import SearchService
@@ -87,10 +87,6 @@ class BiliVideoServices:
             provider_id=initial_provider_id,
             raw_config=self.raw_config
         )
-        if isinstance(self.llm, DisabledLLMProvider):
-            self.logger.warning(
-                "openai_compatible credentials missing; LLM disabled but plugin startup continues"
-            )
 
         # 酷安可选视觉模型：未配置 Provider 时复用默认总结模型。
         self.coolapk_llm: LLMProvider = (
