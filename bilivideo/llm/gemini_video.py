@@ -41,31 +41,20 @@ class NativeVideoResult:
     usage: dict = field(default_factory=dict)
 
 
-def resolve_gemini_settings(provider: object, config: PluginConfig) -> GeminiVideoSettings:
+def resolve_gemini_settings(provider: object) -> GeminiVideoSettings:
     """Reuse the selected provider without inventing native routes for OpenAI-only proxies."""
     provider = getattr(provider, "primary", provider)
-    base = key = model = proxy = ""
-    headers: dict[str, str] = {}
-    native = False
-    if isinstance(provider, AstrbotProvider):
-        selected = provider.get_provider()
-        raw = getattr(selected, "provider_config", {})
-        native = raw.get("type") == "googlegenai_chat_completion"
-        base = str(raw.get("api_base") or ("https://generativelanguage.googleapis.com" if native else ""))
-        model = selected.get_model()
-        key = selected.get_current_key() or ""
-        headers = dict(getattr(selected, "request_headers", {}) or {})
-        proxy = str(raw.get("proxy") or "")
-    if config.video_api_base:
-        # An explicit override may point to another service; do not send the old service's credentials there.
-        same_origin = urlsplit(base)[:2] == urlsplit(config.video_api_base)[:2]
-        if not same_origin:
-            key, headers, proxy = "", {}, ""
-        base = config.video_api_base
-        native = True
-    if not native or not base:
+    if not isinstance(provider, AstrbotProvider):
         raise VideoCapabilityError("native Gemini endpoint unavailable", user_message="当前渠道未配置 Gemini 原生视频接口")
-    key = config.video_api_key or key
+    selected = provider.get_provider()
+    raw = getattr(selected, "provider_config", {})
+    if raw.get("type") != "googlegenai_chat_completion":
+        raise VideoCapabilityError("native Gemini endpoint unavailable", user_message="当前渠道未配置 Gemini 原生视频接口")
+    base = str(raw.get("api_base") or "https://generativelanguage.googleapis.com")
+    model = selected.get_model()
+    key = selected.get_current_key() or ""
+    headers = dict(getattr(selected, "request_headers", {}) or {})
+    proxy = str(raw.get("proxy") or "")
     if not key or not model:
         raise VideoCapabilityError("missing video credentials or model", user_message="视频理解的接口密钥或模型未配置")
     parsed = urlsplit(base)

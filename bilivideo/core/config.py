@@ -64,14 +64,6 @@ def _coerce_str(raw: Any, default: str, *, options: tuple[str, ...] | None = Non
     return value
 
 
-def _coerce_url_base(raw: Any) -> str:
-    """Normalize an HTTP(S) base URL, blanking malformed/non-http values."""
-    value = _coerce_str(raw, "").rstrip("/")
-    if value and not value.startswith(("http://", "https://")):
-        return ""
-    return value
-
-
 def normalize_list(raw: Any, default: tuple[str, ...] = ()) -> tuple[str, ...]:
     """Normalize any list/string representation into a tuple of clean non-empty string tokens.
 
@@ -186,8 +178,6 @@ class PluginConfig:
     video_summary_provider: str = ""
     video_processing_mode: str = "auto"
     video_native_transport: str = "auto"
-    video_api_base: str = ""
-    video_api_key: str = ""
     video_fallback: bool = True
     video_frame_count: int = 8
     video_frame_width: int = 768
@@ -335,8 +325,6 @@ class PluginConfig:
             video_native_transport=_coerce_str(
                 flat.get("video_native_transport"), "auto", options=("auto", "generate_content", "interactions")
             ),
-            video_api_base=_coerce_url_base(flat.get("video_api_base")),
-            video_api_key=_coerce_str(flat.get("video_api_key"), ""),
             video_fallback=_coerce_bool(flat.get("video_fallback"), True),
             video_frame_count=_coerce_int(flat.get("video_frame_count"), 8, lo=1, hi=24),
             video_frame_width=_coerce_int(flat.get("video_frame_width"), 768, lo=320, hi=1536),

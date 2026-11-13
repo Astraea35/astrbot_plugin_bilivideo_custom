@@ -222,29 +222,40 @@ def test_resolve_native_settings_does_not_guess_reverse_proxy_routes():
     )
     provider = AstrbotProvider(SimpleNamespace(get_using_provider=lambda: selected))
     with pytest.raises(VideoCapabilityError):
-        resolve_gemini_settings(provider, PluginConfig())
-    same = resolve_gemini_settings(provider, replace(PluginConfig(), video_api_base="https://proxy.example/gemini"))
-    assert same.api_key == "secret" and same.model == "gemini-alias"
-    with pytest.raises(VideoCapabilityError, match="missing video credentials"):
-        resolve_gemini_settings(provider, replace(PluginConfig(), video_api_base="https://other.example"))
-    other = resolve_gemini_settings(provider, replace(PluginConfig(), video_api_base="https://other.example", video_api_key="other-key"))
-    assert other.api_key == "other-key"
+        resolve_gemini_settings(provider)
 
 
-def test_resolve_astrbot_native_provider_inherits_endpoint_headers_and_model():
+@pytest.mark.parametrize("wrapped", [False, True])
+@pytest.mark.parametrize("base", ["", "https://reverse.example/gemini/v1beta"])
+def test_resolve_astrbot_native_provider_inherits_endpoint_headers_and_model(wrapped, base):
     provider = SimpleNamespace(
-        provider_config={"type": "googlegenai_chat_completion", "api_base": "https://reverse.example/gemini", "proxy": "http://localhost:7890"},
+        provider_config={"type": "googlegenai_chat_completion", "api_base": base, "proxy": "http://localhost:7890"},
         get_model=lambda: "models/gemini-alias", get_current_key=lambda: "selected-key",
         request_headers={"X-Channel": "selected"},
     )
     context = SimpleNamespace(get_provider_by_id=lambda key: provider)
-    settings = resolve_gemini_settings(
-        AstrbotProvider(context, "selected"),
-        PluginConfig.from_mapping({"video_summary_model": "removed"}),
-    )
-    assert settings.api_base == "https://reverse.example/gemini"
+    adapter = AstrbotProvider(context, "selected")
+    settings = resolve_gemini_settings(SimpleNamespace(primary=adapter) if wrapped else adapter)
+    assert settings.api_base == (base or "https://generativelanguage.googleapis.com")
+    assert settings.api_key == "selected-key" and settings.proxy == "http://localhost:7890"
     assert settings.model == "gemini-alias" and settings.headers == {"X-Channel": "selected"}
     assert "selected-key" not in repr(settings)
+
+
+@pytest.mark.parametrize("base,key,model", [
+    ("https://native.example", "", "gemini"),
+    ("https://native.example", "key", ""),
+    ("file:///native", "key", "gemini"),
+    ("https://user:pass@native.example", "key", "gemini"),
+    ("https://native.example?secret=value", "key", "gemini"),
+])
+def test_native_provider_settings_still_validate_credentials_and_endpoint(base, key, model):
+    selected = SimpleNamespace(
+        provider_config={"type": "googlegenai_chat_completion", "api_base": base},
+        get_model=lambda: model, get_current_key=lambda: key,
+    )
+    with pytest.raises(VideoCapabilityError):
+        resolve_gemini_settings(AstrbotProvider(SimpleNamespace(get_using_provider=lambda: selected)))
 
 
 @asynccontextmanager
@@ -510,16 +521,30 @@ async def test_real_ffmpeg_frame_sampling_and_local_file_cleanup(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_video_settings_mask_secrets_on_read_and_save(tmp_path, monkeypatch):
+@pytest.mark.parametrize("nested", [False, True])
+async def test_video_settings_ignore_legacy_endpoint_and_key_on_read_and_save(tmp_path, monkeypatch, nested):
     monkeypatch.setattr("bilivideo.webui.json_response", lambda payload: payload)
-    config = {"video": {"video_summary_mode": "frames", "video_api_key": "private"}}
+    block = {
+        "video_summary_mode": "frames",
+        "video_api_base": "https://obsolete.example", "video_api_key": "legacy-video-secret",
+    }
+    config = {"video": block} if nested else block
     ui = PluginWebUI(SimpleNamespace(config=config), object(), SimpleNamespace(), str(tmp_path))
     state = await ui.get_state()
-    assert state["config"]["video_api_key"] == ""
+    assert not {"video_api_base", "video_api_key"} & state["config"].keys()
+    assert "video_api_key" not in state["secret_present"]
+    assert "legacy-video-secret" not in repr(state)
     monkeypatch.setattr("bilivideo.webui.request", SimpleNamespace(json=AsyncMock(return_value={
-        "settings": {"video_summary_mode": "native", "video_api_key": ""},
+        "settings": {
+            "video_summary_mode": "native",
+            "video_api_base": "https://replacement.example", "video_api_key": "replacement",
+        },
     })))
     response = await ui.save_settings()
-    assert config["video"]["video_api_key"] == "private"
-    assert response["config"]["video_api_key"] == ""
+    saved_block = config["video"] if nested else config
+    assert saved_block["video_api_base"] == "https://obsolete.example"
+    assert saved_block["video_api_key"] == "legacy-video-secret"
+    assert not {"video_api_base", "video_api_key"} & response["config"].keys()
+    assert not hasattr(ui.services.config, "video_api_base")
+    assert not hasattr(ui.services.config, "video_api_key")
     assert response["config"]["video_summary_mode"] == "native"

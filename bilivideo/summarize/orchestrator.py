@@ -194,7 +194,7 @@ class SummaryOrchestrator:
             "note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle",
             "enable_bilibili_ai_subtitle", "subtitle_langs", "download_quality", "video_summary_mode",
             "video_summary_provider", "video_processing_mode", "video_native_transport",
-            "video_api_base", "video_fallback", "video_frame_count", "video_frame_width",
+            "video_fallback", "video_frame_count", "video_frame_width",
             "video_max_duration", "video_max_size_mb",
         )
         signature = {key: getattr(self._config, key) for key in keys}
@@ -213,7 +213,7 @@ class SummaryOrchestrator:
         if self._config.video_summary_mode == "native":
             try:
                 native = GeminiVideoProvider(
-                    resolve_gemini_settings(self._video_llm, self._config),
+                    resolve_gemini_settings(self._video_llm),
                     timeout=min(self._config.processing_timeout * 0.6, LLM_CHAT_TIMEOUT_SECONDS),
                 )
             except BiliVideoError as exc:
