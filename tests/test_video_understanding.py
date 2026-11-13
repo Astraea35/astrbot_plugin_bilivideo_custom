@@ -66,7 +66,7 @@ def make_orchestrator(monkeypatch, tmp_path, mode="frames", **settings):
     pipeline = SimpleNamespace(fetch=AsyncMock(return_value=PipelineOutput(transcript, None)), cleanup_audio=lambda audio: None)
     llm = SimpleNamespace(chat=AsyncMock(return_value=ANSWER), cache_identity="model-a")
     media = FakeMedia()
-    config = PluginConfig.from_mapping({"video_summary_mode": mode, **settings})
+    config = PluginConfig.from_mapping({"video_summary_mode": mode, "video_frame_strategy": "uniform", **settings})
     return SummaryOrchestrator(
         config=config, llm=llm, pipeline=pipeline, video_media=media,
         http_client=object(), data_dir=str(tmp_path),
@@ -80,7 +80,7 @@ def test_video_config_validation_and_defaults():
         "video_frame_width": 2, "video_max_duration": -1, "video_max_size_mb": 9999,
     }})
     assert (config.video_summary_mode, config.video_processing_mode) == ("subtitle", "auto")
-    assert (config.video_frame_count, config.video_frame_width) == (24, 320)
+    assert (config.video_frame_count, config.video_frame_width) == (96, 320)
     assert (config.video_max_duration, config.video_max_size_mb) == (10, 512)
 
 

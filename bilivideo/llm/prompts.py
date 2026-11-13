@@ -134,8 +134,10 @@ def build_video_prompt(*, title: str, config, segments=(), timestamps=(), native
     if native:
         return prompt + "\n请结合所附原始视频的画面和音频总结，引用可核实的时间点。不要根据标题补写内容。"
     timeline = "、".join(f"第{index + 1}张={format_time(stamp)}" for index, stamp in enumerate(timestamps))
+    sampling = ("这些画面来自预览或模型按需补看" if config.video_frame_strategy == "adaptive"
+                else "这些画面是均匀稀疏抽样")
     return prompt + (
-        f"\n所附画面按顺序对应：{timeline}。这些画面是均匀稀疏抽样，并不覆盖全部镜头。"
+        f"\n所附画面按顺序对应：{timeline}。{sampling}，并不覆盖全部镜头。"
         "请结合字幕和图片中的操作、文字、图表总结；不得把静态图片描述成亲眼看过连续动作。"
         "未提供字幕时，只描述可见画面，不得声称听到了声音。画面不足以确认的内容请明确说明。"
     )

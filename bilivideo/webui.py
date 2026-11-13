@@ -43,7 +43,7 @@ CONFIG_GROUPS: dict[str, tuple[str, ...]] = {
     "general": ("debug_mode", "processing_timeout", "user_cooldown_seconds", "task_gap_secs", "reconnect_silent", "reconnect_silent_threshold_secs", "recent_dynamic_cache", "dynamic_limit"),
     "llm": ("llm_provider", "astrbot_provider_id", "enable_fallback", "backup_provider_id", "bangumi_token"),
     "summary": ("note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle", "enable_bilibili_ai_subtitle", "summary_featured_comment_count", "summary_comment_reply_count", "subtitle_langs", "download_quality"),
-    "video": ("video_summary_mode", "video_summary_provider", "video_processing_mode", "video_native_transport", "video_fallback", "video_frame_count", "video_frame_width", "video_max_duration", "video_max_size_mb"),
+    "video": ("video_summary_mode", "video_summary_provider", "video_processing_mode", "video_native_transport", "video_fallback", "video_frame_strategy", "video_preview_count", "video_max_rounds", "video_download_height", "video_frame_count", "video_frame_width", "video_max_duration", "video_max_size_mb"),
     "coolapk": ("coolapk_summary_provider",),
     "zhihu": ("zhihu_cookie", "zhihu_summary_provider"),
     "render": ("output_image", "theme", "renderer_template", "custom_font_path", "image_scale_factor", "image_width", "image_output_format", "image_quality", "enable_auto_split", "max_cards_per_image", "image_font_size"),

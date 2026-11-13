@@ -44,6 +44,7 @@ from ..subscription.store import JsonStore
 from ..transcription.pipeline import PipelineOutput, TranscriptPipeline
 from .post_process import replace_timestamp_markers, smart_truncate
 from .video_media import VideoMediaService
+from .adaptive_video import summarize_adaptive
 from .relevance import (
     summary_conflicts_with_title,
     summary_conflicts_with_transcript,
@@ -52,7 +53,7 @@ from .relevance import (
 
 logger = get_logger("BiliVideo/Summary")
 _SUMMARY_MISMATCH_MAX_RETRIES = 3
-_SUMMARY_CACHE_VERSION = 3
+_SUMMARY_CACHE_VERSION = 4
 
 
 @dataclass(slots=True)
@@ -176,7 +177,13 @@ class SummaryOrchestrator:
             markdown = replace_timestamp_markers(markdown)
         markdown = smart_truncate(markdown, self._config.max_note_length)
         if result.source_mode == "frames":
-            markdown += "\n\n> 总结依据：字幕与抽样画面（无可用字幕时仅依据画面），未逐帧检查整段视频。"
+            if result.processing_mode == "adaptive":
+                markdown += (
+                    f"\n\n> 总结依据：字幕与模型按需查看的画面（共 {result.usage.get('video_frames', 0)} 张，"
+                    f"补看 {result.usage.get('video_review_rounds', 0)} 轮）；无可用字幕时仅依据画面，未逐帧检查整段视频。"
+                )
+            else:
+                markdown += "\n\n> 总结依据：字幕与抽样画面（无可用字幕时仅依据画面），未逐帧检查整段视频。"
         elif result.source_mode == "native":
             label = {"static": "Static", "agentic": "Agentic", "agentic_unverified": "Agentic（渠道未确认）"}
             markdown += f"\n\n> 总结依据：原生视频理解 · {label.get(result.processing_mode, result.processing_mode)}。"
@@ -195,7 +202,8 @@ class SummaryOrchestrator:
             "enable_bilibili_ai_subtitle", "subtitle_langs", "download_quality", "video_summary_mode",
             "video_summary_provider", "video_processing_mode", "video_native_transport",
             "video_fallback", "video_frame_count", "video_frame_width",
-            "video_max_duration", "video_max_size_mb",
+            "video_max_duration", "video_max_size_mb", "video_frame_strategy",
+            "video_preview_count", "video_max_rounds", "video_download_height",
         )
         signature = {key: getattr(self._config, key) for key in keys}
         signature["llm"] = getattr(self._llm, "cache_identity", type(self._llm).__name__)
@@ -243,7 +251,6 @@ class SummaryOrchestrator:
                 return await self._generate_frames(video_url, info, media, warning)
 
     async def _generate_frames(self, video_url: str, info, media, warning: str) -> NoteResult:
-        frames = await self._video_media.frames(media, self._config)
         output = None
         transcript_key = extract_bvid(video_url) or video_url.strip()
         try:
@@ -266,6 +273,21 @@ class SummaryOrchestrator:
             output = None
             warning = (warning + "；" if warning else "") + "未获得可靠字幕，本次仅依据抽样画面"
         try:
+            if self._config.video_frame_strategy == "adaptive":
+                result = await summarize_adaptive(
+                    llm=self._video_llm, media_service=self._video_media, media=media,
+                    config=self._config, title=info.title if info else media.title,
+                    segments=output.transcript.segments if output else (),
+                )
+                if not result.text or summary_conflicts_with_title(info.title if info else media.title, result.text):
+                    raise BiliVideoError("invalid visual summary", user_message="画面总结为空或与视频内容不符")
+                if result.warning:
+                    warning = (warning + "；" if warning else "") + result.warning
+                return NoteResult(
+                    result.text, info, output is not None and output.audio is None,
+                    "frames", "adaptive", warning, result.usage,
+                )
+            frames = await self._video_media.frames(media, self._config)
             prompt = build_video_prompt(
                 title=info.title if info else media.title, config=self._config,
                 segments=output.transcript.segments if output else (),

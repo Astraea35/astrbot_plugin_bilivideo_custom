@@ -1,3 +1,5 @@
+v2.4.31：画面总结新增模型按需补看，可指定时间点和局部区域读取测评图表；默认 12 张预览、最多 48 张图片、3 轮补看，下载画质上限 1080p、时长上限 1 小时、文件上限 256 MiB。视频总结仍默认使用字幕，旧配置值继续保留。[设置与费用说明](docs/video-understanding.md)
+
 v2.4.30：移除 Gemini 原生视频独立的接口地址、密钥及覆盖逻辑，直接复用所选 AstrBot Gemini 原生提供者的接口、认证、模型和代理配置。旧字段不再使用或回显；反代请统一在 AstrBot 提供者中配置。
 
 v2.4.29：全面清理视频理解、酷安、知乎和动态摘要的手填模型名称及请求覆盖逻辑，各功能统一使用所选 AstrBot 提供者的模型配置；旧模型名称字段不再读取、回显或接受修改。如需使用其他模型，请在 AstrBot 中配置并选择对应提供者。
@@ -37,7 +39,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 [![AstrBot](https://img.shields.io/badge/AstrBot-v4.0%2B-blueviolet)](https://astrbot.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.4.30-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.4.31-orange)](CHANGELOG.md)
 
 </div>
 

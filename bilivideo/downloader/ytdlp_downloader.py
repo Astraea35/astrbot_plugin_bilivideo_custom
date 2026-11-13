@@ -235,6 +235,7 @@ class YtDlpDownloader:
         max_duration: int,
         max_size_bytes: int,
         cancel_event: threading.Event,
+        max_height: int = 1080,
     ) -> dict:
         """Download a bounded, low-resolution video into a caller-owned directory."""
         target = Path(output_dir)
@@ -257,7 +258,7 @@ class YtDlpDownloader:
                 raise DownloadError("video size limit", user_message="视频超过视频理解的文件大小上限")
 
         opts = {
-            "format": "bestvideo[height<=480]+bestaudio/best[height<=480]",
+            "format": f"bestvideo[height<={int(max_height)}]+bestaudio/best[height<={int(max_height)}]",
             "merge_output_format": "mp4",
             "outtmpl": str(target / "source.%(ext)s"),
             "noplaylist": True,

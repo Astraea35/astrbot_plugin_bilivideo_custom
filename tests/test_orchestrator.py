@@ -328,7 +328,7 @@ async def test_kimi_parenting_subtitle_or_cache_is_replaced_with_audio(monkeypat
     assert pipeline.cleanup_calls == [audio]
     saved = (await orch._persistent_cache.read())["entries"][orch.cache_key(info.bvid)]
     assert saved["markdown"] == note
-    assert saved["version"] == 3
+    assert saved["version"] == 4
 
 
 @pytest.mark.asyncio

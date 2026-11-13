@@ -18,7 +18,7 @@
     "type": "object",
     "items": {
       "debug_mode": { "type": "bool", "default": false, "description": "调试模式", "hint": "开启后输出详细调试日志，正常使用请关闭" },
-      "processing_timeout": { "type": "int", "default": 300, "min": 60, "max": 1800, "description": "单次总结超时（秒）", "hint": "下载、音频转写或模型调用阶段超过此时长时，视为处理失败" },
+      "processing_timeout": { "type": "int", "default": 600, "min": 60, "max": 1800, "description": "单次总结超时（秒）", "hint": "整次请求的总限时，默认 10 分钟，包含下载、转写、画面补看与总结；与视频本身的长度上限不同。" },
       "user_cooldown_seconds": { "type": "int", "default": 8, "min": 0, "max": 600, "description": "用户冷却(秒)", "hint": "每个用户两次手动总结之间的最小间隔，设 0 关闭" },
       "task_gap_secs": { "type": "int", "default": 20, "min": 1, "max": 120, "description": "相邻投稿者任务最小间隔（秒）", "hint": "避免同时请求 B 站接口触发风控" },
       "reconnect_silent": { "type": "bool", "default": false, "description": "重连静默模式", "hint": "启动时若长时间未成功推送，先静默一段时间消化积压动态" },
@@ -63,15 +63,19 @@
     "description": "🎬 视频理解（可选）",
     "type": "object",
     "items": {
-      "video_summary_mode": { "type": "string", "default": "subtitle", "options": ["subtitle", "frames", "native"], "labels": ["字幕 / 音频转写（默认）", "字幕＋抽样画面", "Gemini 原生视频"], "description": "视频总结依据", "hint": "字幕模式维持原有流程；画面模式需要图片输入能力；原生模式需要 Gemini 视频接口。" },
-      "video_summary_provider": { "type": "string", "default": "", "description": "视频理解模型提供者", "hint": "留空复用主总结模型。原生视频需选择 AstrBot 的 Gemini 原生提供者，接口地址、密钥和代理直接使用该提供者的配置。", "_special": "select_provider" },
-      "video_processing_mode": { "type": "string", "default": "auto", "options": ["auto", "static", "agentic"], "labels": ["自动", "Static 静态", "Agentic 智能"], "description": "原生视频处理模式", "hint": "自动针对整段总结选择 Static；Agentic 需要具体模型和反代同时支持，不保证更省 token。" },
-      "video_native_transport": { "type": "string", "default": "auto", "options": ["auto", "generate_content", "interactions"], "labels": ["自动", "generateContent（Static）", "Interactions"], "description": "原生视频接口", "hint": "自动使用静态接口；Agentic 通过 Interactions。按反代开放的接口选择。" },
-      "video_fallback": { "type": "bool", "default": true, "description": "视频理解失败时回退", "hint": "原生视频失败改用抽样画面；画面失败改用字幕或转写，结果标明实际依据。关闭后直接报告失败。" },
-      "video_frame_count": { "type": "int", "default": 8, "min": 1, "max": 24, "description": "最多抽取画面数", "hint": "均匀抽样，不是逐帧阅读；数量越多图片输入开销越高。" },
-      "video_frame_width": { "type": "int", "default": 768, "min": 320, "max": 1536, "description": "抽样画面宽度（像素）", "hint": "不会放大原视频；下载优先选择不超过 480p 的画质。" },
-      "video_max_duration": { "type": "int", "default": 1800, "min": 10, "max": 10800, "description": "视频理解最长时长（秒）", "hint": "默认 30 分钟；超限后按回退设置处理。" },
-      "video_max_size_mb": { "type": "int", "default": 80, "min": 1, "max": 512, "description": "视频文件大小上限（MiB）", "hint": "限制视频下载与上传大小，默认 80 MiB。" }
+      "video_summary_mode": {"type": "string", "default": "subtitle", "options": ["subtitle", "frames", "native"], "labels": ["字幕 / 音频转写（默认）", "字幕与画面", "Gemini 原生视频"], "description": "视频总结依据", "hint": "默认只读字幕或音频转写。测评图表可选“字幕与画面”；原生视频需要所选 Gemini 提供者和渠道支持。"},
+      "video_summary_provider": {"type": "string", "default": "", "description": "视频理解模型", "hint": "留空复用主总结模型。画面模式需要图片输入能力；原生视频复用所选 AstrBot Gemini 提供者的模型、接口、密钥和代理。", "_special": "select_provider"},
+      "video_processing_mode": {"type": "string", "default": "auto", "options": ["auto", "static", "agentic"], "labels": ["自动", "Static 静态", "Agentic 智能"], "description": "Gemini 原生处理方式", "hint": "仅影响原生视频。自动对整段总结选择 Static；Agentic 需要型号和渠道同时支持，不保证更省 token。"},
+      "video_native_transport": {"type": "string", "default": "auto", "options": ["auto", "generate_content", "interactions"], "labels": ["自动", "generateContent（Static）", "Interactions"], "description": "Gemini 原生接口", "hint": "通常保持自动。Static 优先使用 generateContent，Agentic 使用 Interactions；需由渠道开放对应接口。"},
+      "video_fallback": {"type": "bool", "default": true, "description": "视频理解失败时尝试其他方式", "hint": "开启后，原生视频不可用时尝试画面，画面总结失败再尝试字幕或转写；结果会说明实际依据。关闭后直接报告失败。"},
+      "video_frame_strategy": {"type": "string", "default": "adaptive", "options": ["adaptive", "uniform"], "labels": ["模型按需补看（推荐）", "固定均匀取样"], "description": "画面选择方式", "hint": "默认先给预览，由模型按需请求时间点或局部图；也可固定均匀取样。仅影响画面模式及原生视频回退后的画面处理。"},
+      "video_preview_count": {"type": "int", "default": 12, "min": 1, "max": 24, "description": "首批预览图片数", "hint": "默认 12 张，结合均匀时间点与场景变化候选，预览宽度最多 640 像素。预览计入图片总预算，不会超过该预算。"},
+      "video_max_rounds": {"type": "int", "default": 3, "min": 1, "max": 6, "description": "最多补看轮数", "hint": "默认 3 轮，每轮最多补看 12 张；信息足够时模型可提前结束。所有轮次仍受图片总预算约束。"},
+      "video_download_height": {"type": "int", "default": 1080, "min": 360, "max": 1080, "description": "下载画质高度上限（像素）", "hint": "默认 1080p，适合读取测评图表。实际画质取决于平台权限和源视频；提高此值会增加下载量，不能恢复源视频缺失的细节。"},
+      "video_frame_count": {"type": "int", "default": 48, "min": 1, "max": 96, "description": "图片总预算（张）", "hint": "默认最多 48 张，包含预览、高清帧和局部图，模型无需用满；固定均匀模式按此数量取样。这不是 token 或累计传图次数上限。"},
+      "video_frame_width": {"type": "int", "default": 1280, "min": 320, "max": 1920, "description": "补看图片宽度上限（像素）", "hint": "默认 1280，影响补看和固定均匀抽帧；预览最多 640。局部图先裁剪再缩放，不放大低清来源。"},
+      "video_max_duration": {"type": "int", "default": 3600, "min": 10, "max": 10800, "description": "源视频时长上限（秒）", "hint": "默认 3600 秒，即 60 分钟。限制视频本身长度，与“单次总结超时”不同；超限后按回退设置处理。"},
+      "video_max_size_mb": {"type": "int", "default": 256, "min": 1, "max": 512, "description": "视频文件大小上限（MiB）", "hint": "默认 256 MiB，限制实际下载与上传的文件大小。这不是 token 上限；提高画质时可能需要相应增加。"}
     }
   },
   "coolapk": {

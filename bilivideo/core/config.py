@@ -153,7 +153,7 @@ class PluginConfig:
 
     # general -----------------------------------------------------------
     debug_mode: bool = False
-    processing_timeout: int = 300
+    processing_timeout: int = 600
     user_cooldown_seconds: int = 8
 
     # llm ----------------------------------------------------------------
@@ -179,10 +179,14 @@ class PluginConfig:
     video_processing_mode: str = "auto"
     video_native_transport: str = "auto"
     video_fallback: bool = True
-    video_frame_count: int = 8
-    video_frame_width: int = 768
-    video_max_duration: int = 1800
-    video_max_size_mb: int = 80
+    video_frame_strategy: str = "adaptive"
+    video_preview_count: int = 12
+    video_max_rounds: int = 3
+    video_download_height: int = 1080
+    video_frame_count: int = 48
+    video_frame_width: int = 1280
+    video_max_duration: int = 3600
+    video_max_size_mb: int = 256
     # Coolapk text-post recognition. Empty provider means reuse the default summary LLM.
     coolapk_summary_provider: str = ""
     zhihu_cookie: str = ""
@@ -286,7 +290,7 @@ class PluginConfig:
         flat = _flatten_groups(raw)
         return cls(
             debug_mode=_coerce_bool(flat.get("debug_mode"), False),
-            processing_timeout=_coerce_int(flat.get("processing_timeout"), 300, lo=60, hi=1800),
+            processing_timeout=_coerce_int(flat.get("processing_timeout"), 600, lo=60, hi=1800),
             user_cooldown_seconds=_coerce_int(flat.get("user_cooldown_seconds"), 8, lo=0, hi=600),
             llm_provider=_coerce_str(flat.get("llm_provider"), "astrbot", options=LLM_PROVIDERS),
             astrbot_provider_id=_coerce_str(flat.get("astrbot_provider_id"), ""),
@@ -326,10 +330,16 @@ class PluginConfig:
                 flat.get("video_native_transport"), "auto", options=("auto", "generate_content", "interactions")
             ),
             video_fallback=_coerce_bool(flat.get("video_fallback"), True),
-            video_frame_count=_coerce_int(flat.get("video_frame_count"), 8, lo=1, hi=24),
-            video_frame_width=_coerce_int(flat.get("video_frame_width"), 768, lo=320, hi=1536),
-            video_max_duration=_coerce_int(flat.get("video_max_duration"), 1800, lo=10, hi=10800),
-            video_max_size_mb=_coerce_int(flat.get("video_max_size_mb"), 80, lo=1, hi=512),
+            video_frame_strategy=_coerce_str(
+                flat.get("video_frame_strategy"), "adaptive", options=("adaptive", "uniform")
+            ),
+            video_preview_count=_coerce_int(flat.get("video_preview_count"), 12, lo=1, hi=24),
+            video_max_rounds=_coerce_int(flat.get("video_max_rounds"), 3, lo=1, hi=6),
+            video_download_height=_coerce_int(flat.get("video_download_height"), 1080, lo=360, hi=1080),
+            video_frame_count=_coerce_int(flat.get("video_frame_count"), 48, lo=1, hi=96),
+            video_frame_width=_coerce_int(flat.get("video_frame_width"), 1280, lo=320, hi=1920),
+            video_max_duration=_coerce_int(flat.get("video_max_duration"), 3600, lo=10, hi=10800),
+            video_max_size_mb=_coerce_int(flat.get("video_max_size_mb"), 256, lo=1, hi=512),
             coolapk_summary_provider=_coerce_str(flat.get("coolapk_summary_provider"), ""),
             zhihu_cookie=_coerce_str(flat.get("zhihu_cookie"), ""),
             zhihu_summary_provider=_coerce_str(flat.get("zhihu_summary_provider"), ""),
