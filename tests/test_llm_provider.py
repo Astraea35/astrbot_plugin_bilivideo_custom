@@ -48,7 +48,7 @@ async def test_provider_modes_use_astrbot_including_legacy_config(nested: bool, 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("nested", [False, True])
 @pytest.mark.parametrize("backup", ["backup", ["backup"]])
-async def test_fallback_uses_native_provider_config_without_primary_model(nested: bool, backup) -> None:
+async def test_fallback_uses_each_native_provider_config(nested: bool, backup) -> None:
     llm_config = {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": backup}
     raw_config = {"llm": llm_config} if nested else llm_config
     generate = AsyncMock(side_effect=[RuntimeError("primary unavailable"), "backup result"])
@@ -62,7 +62,6 @@ async def test_fallback_uses_native_provider_config_without_primary_model(nested
         "summarize",
         session_id="session",
         image_urls=("https://example.com/a.png",),
-        model="primary-model",
     )
 
     assert answer == "backup result"
@@ -72,7 +71,6 @@ async def test_fallback_uses_native_provider_config_without_primary_model(nested
             prompt="summarize",
             session_id="session",
             image_urls=["https://example.com/a.png"],
-            model="primary-model",
         ),
         call(
             chat_provider_id="backup",
@@ -161,7 +159,7 @@ async def test_multiple_backups_run_in_order_and_stop_on_success() -> None:
         raw_config=raw_config,
     )
 
-    assert await provider.chat("hello", session_id="session", image_urls=("image",), model="main-model") == "success"
+    assert await provider.chat("hello", session_id="session", image_urls=("image",)) == "success"
     assert [args.kwargs["chat_provider_id"] for args in generate.await_args_list] == ["primary", "backup-1", "backup-2"]
     for args in generate.await_args_list[1:]:
         assert args.kwargs == {

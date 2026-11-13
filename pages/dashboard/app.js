@@ -14,13 +14,11 @@ const fieldGroups = {
   aiDynamic: [
     { key: "enable_dynamic_ai_summary", label: "动态智能摘要", hint: "为订阅动态额外生成摘要", type: "switch" },
     { key: "dynamic_summary_provider", label: "动态摘要模型标识", hint: "填写已配置的模型标识；留空使用默认总结模型", type: "text" },
-    { key: "dynamic_summary_model", label: "动态摘要模型", hint: "留空使用默认模型", type: "text" },
     { key: "enable_multimodal_dynamic_summary", label: "多模态动态摘要", hint: "将动态图片交给视觉模型", type: "switch" },
   ],
   summary: [
     { key: "video_summary_mode", label: "视频总结依据", type: "select", options: [["subtitle", "字幕 / 音频转写（默认）"], ["frames", "字幕＋抽样画面"], ["native", "Gemini 原生视频"]] },
     { key: "video_summary_provider", label: "视频理解模型标识", hint: "填写 AstrBot 已配置的模型标识；留空复用主总结模型", type: "text" },
-    { key: "video_summary_model", label: "视频理解模型名称", hint: "留空使用所选模型的默认名称", type: "text" },
     { key: "video_processing_mode", label: "原生视频处理模式", hint: "自动针对整段总结选择 Static；Agentic 需要模型和反代同时支持", type: "select", options: [["auto", "自动"], ["static", "Static 静态"], ["agentic", "Agentic 智能"]] },
     { key: "video_native_transport", label: "原生视频接口", hint: "自动优先使用兼容性较好的静态接口；Agentic 使用 Interactions", type: "select", options: [["auto", "自动"], ["generate_content", "generateContent（Static）"], ["interactions", "Interactions"]] },
     { key: "video_api_base", label: "Gemini 原生接口地址", hint: "可选，填反代提供的 Gemini 地址；仅有 OpenAI 兼容接口时不能据模型名称判断原生视频可用", type: "url", wide: true },

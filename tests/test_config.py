@@ -123,7 +123,7 @@ def test_dynamic_summary_configuration_is_parsed() -> None:
     )
     assert cfg.enable_dynamic_ai_summary is True
     assert cfg.dynamic_summary_provider == "vision-provider"
-    assert cfg.dynamic_summary_model == "vision-model"
+    assert not hasattr(cfg, "dynamic_summary_model")
     assert cfg.enable_multimodal_dynamic_summary is True
 
 
@@ -132,7 +132,7 @@ def test_coolapk_vision_configuration_is_parsed() -> None:
         {"summary": {"coolapk_summary_provider": "vision-provider", "coolapk_summary_model": "vision-model"}}
     )
     assert cfg.coolapk_summary_provider == "vision-provider"
-    assert cfg.coolapk_summary_model == "vision-model"
+    assert not hasattr(cfg, "coolapk_summary_model")
 
 
 def test_enabled_platforms_are_independently_configurable() -> None:

@@ -1,3 +1,5 @@
+v2.4.29：全面清理视频理解、酷安、知乎和动态摘要的手填模型名称及请求覆盖逻辑，各功能统一使用所选 AstrBot 提供者的模型配置；旧模型名称字段不再读取、回显或接受修改。如需使用其他模型，请在 AstrBot 中配置并选择对应提供者。
+
 v2.4.28：移除重复的“指定内置模型标识”设置，默认模式跟随 AstrBot 当前默认模型，指定模型统一使用“AstrBot 指定平台”。`/总结模型` 命令同步修改该平台选择，重载后保持生效。旧版内置模型标识不再读取，原先使用该字段的用户请改在指定平台中选择。
 
 v2.4.27：移除插件独立的自定义 OpenAI 兼容接口及地址、密钥、模型名称和温度配置，统一使用 AstrBot 当前默认模型或指定平台，保留备用模型切换。旧版自定义接口模式自动回到 AstrBot 默认模式，旧接口字段不再使用或回显；Gemini 原生视频专用配置保留。
@@ -33,7 +35,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 [![AstrBot](https://img.shields.io/badge/AstrBot-v4.0%2B-blueviolet)](https://astrbot.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.4.28-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.4.29-orange)](CHANGELOG.md)
 
 </div>
 

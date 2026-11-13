@@ -40,7 +40,6 @@ class AstrbotProvider:
         *,
         session_id: str | None = None,
         image_urls: Sequence[str] = (),
-        model: str = "",
     ) -> str:
         if self._context is None:
             raise LLMError("AstrBot context unavailable")
@@ -48,15 +47,11 @@ class AstrbotProvider:
         try:
             generate = getattr(self._context, "llm_generate", None)
             if self.provider_id and callable(generate):
-                kwargs: dict[str, Any] = {}
-                if model:
-                    kwargs["model"] = model
                 response = await generate(
                     chat_provider_id=self.provider_id,
                     prompt=prompt,
                     session_id=session_id or "BiliVideo_plugin",
                     image_urls=list(image_urls),
-                    **kwargs,
                 )
             else:
                 if self.provider_id:
@@ -74,14 +69,12 @@ class AstrbotProvider:
                         prompt=prompt,
                         session_id=session_id or "BiliVideo_plugin",
                         image_urls=image_urls,
-                        model=model,
                     )
                 else:
                     response = await self._call_provider_method(
                         provider.text_chat,
                         prompt=prompt,
                         session_id=session_id or "BiliVideo_plugin",
-                        model=model,
                     )
         except Exception as exc:  # pragma: no cover - relies on AstrBot
             raise LLMError(f"AstrBot LLM request failed: {exc}") from exc
@@ -99,7 +92,6 @@ class AstrbotProvider:
         prompt: str,
         session_id: str,
         image_urls: Sequence[str],
-        model: str,
     ) -> Any:
         for method_name in ("image_chat", "multimodal_chat"):
             method = getattr(provider, method_name, None)
@@ -109,7 +101,6 @@ class AstrbotProvider:
                     prompt=prompt,
                     session_id=session_id,
                     image_urls=image_urls,
-                    model=model,
                 )
         # Current AstrBot adapters accept images on text_chat itself.
         method = getattr(provider, "text_chat", None)
@@ -119,7 +110,7 @@ class AstrbotProvider:
                 item.kind is inspect.Parameter.VAR_KEYWORD for item in parameters.values()
             ):
                 return await self._call_provider_method(
-                    method, prompt=prompt, session_id=session_id, image_urls=image_urls, model=model,
+                    method, prompt=prompt, session_id=session_id, image_urls=image_urls,
                 )
         raise LLMError("selected AstrBot provider does not support image input")
 
@@ -130,7 +121,6 @@ class AstrbotProvider:
         prompt: str,
         session_id: str,
         image_urls: Sequence[str] = (),
-        model: str = "",
     ) -> Any:
         try:
             parameters = inspect.signature(method).parameters
@@ -152,8 +142,6 @@ class AstrbotProvider:
             kwargs["text"] = prompt
         if supports("session_id"):
             kwargs["session_id"] = session_id
-        if model and supports("model"):
-            kwargs["model"] = model
         if image_urls:
             if supports("image_urls"):
                 kwargs["image_urls"] = list(image_urls)

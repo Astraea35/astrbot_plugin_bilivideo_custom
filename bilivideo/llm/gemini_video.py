@@ -66,7 +66,6 @@ def resolve_gemini_settings(provider: object, config: PluginConfig) -> GeminiVid
     if not native or not base:
         raise VideoCapabilityError("native Gemini endpoint unavailable", user_message="当前渠道未配置 Gemini 原生视频接口")
     key = config.video_api_key or key
-    model = config.video_summary_model or model
     if not key or not model:
         raise VideoCapabilityError("missing video credentials or model", user_message="视频理解的接口密钥或模型未配置")
     parsed = urlsplit(base)

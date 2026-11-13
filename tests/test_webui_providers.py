@@ -120,3 +120,30 @@ async def test_only_platform_selection_controls_the_model(tmp_path, monkeypatch,
     assert services.config == parsed
     provider = build_provider(parsed, astrbot_context=None, raw_config=config)
     assert provider.provider_id == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested", [False, True])
+async def test_all_legacy_model_overrides_are_ignored_by_settings(tmp_path, monkeypatch, nested) -> None:
+    from dataclasses import asdict
+
+    monkeypatch.setattr("bilivideo.webui.json_response", lambda payload: payload)
+    groups = {
+        "video": {"video_summary_model": "old-video-model"},
+        "coolapk": {"coolapk_summary_model": "old-coolapk-model"},
+        "zhihu": {"zhihu_summary_model": "old-zhihu-model"},
+        "subscription": {"dynamic_summary_model": "old-dynamic-model"},
+    }
+    legacy = {key: value for block in groups.values() for key, value in block.items()}
+    config = groups if nested else legacy
+    ui = PluginWebUI(SimpleNamespace(config=config), object(), SimpleNamespace(raw_config={}), str(tmp_path))
+    assert not legacy.keys() & asdict(PluginConfig.from_mapping(config)).keys()
+    state = await ui.get_state()
+    assert not legacy.keys() & state["config"].keys()
+    assert ui._candidate_with_settings(dict.fromkeys(legacy, "replacement")) == config
+    monkeypatch.setattr("bilivideo.webui.request", SimpleNamespace(json=AsyncMock(return_value={
+        "settings": dict.fromkeys(legacy, "replacement"),
+    })))
+    saved = await ui.save_settings()
+    assert saved["saved"] is True
+    assert not legacy.keys() & saved["config"].keys()

@@ -193,7 +193,7 @@ class SummaryOrchestrator:
         keys = (
             "note_style", "enable_link", "enable_summary", "max_note_length", "prefer_subtitle",
             "enable_bilibili_ai_subtitle", "subtitle_langs", "download_quality", "video_summary_mode",
-            "video_summary_provider", "video_summary_model", "video_processing_mode", "video_native_transport",
+            "video_summary_provider", "video_processing_mode", "video_native_transport",
             "video_api_base", "video_fallback", "video_frame_count", "video_frame_width",
             "video_max_duration", "video_max_size_mb",
         )
@@ -274,7 +274,6 @@ class SummaryOrchestrator:
             markdown = await asyncio.wait_for(
                 self._video_llm.chat(
                     prompt, session_id="BiliVideo_video", image_urls=tuple(frame.image_url for frame in frames),
-                    model=self._config.video_summary_model,
                 ), timeout=LLM_CHAT_TIMEOUT_SECONDS,
             )
             if not markdown or summary_conflicts_with_title(info.title if info else media.title, markdown):
@@ -406,7 +405,6 @@ class SummaryOrchestrator:
                     prompt,
                     session_id="BiliVideo_coolapk",
                     image_urls=post.images,
-                    model=getattr(self._config, "coolapk_summary_model", ""),
                 ),
                 timeout=LLM_CHAT_TIMEOUT_SECONDS,
             )
@@ -436,7 +434,6 @@ class SummaryOrchestrator:
                     prompt,
                     session_id="BiliVideo_zhihu",
                     image_urls=post.images,
-                    model=getattr(self._config, "zhihu_summary_model", ""),
                 ),
                 timeout=LLM_CHAT_TIMEOUT_SECONDS,
             )

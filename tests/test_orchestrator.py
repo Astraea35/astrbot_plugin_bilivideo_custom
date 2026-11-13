@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
 from bilivideo.core.config import PluginConfig
+from bilivideo.coolapk import CoolapkPost
 from bilivideo.core.exceptions import BiliVideoError, LLMError
 from bilivideo.core.types import (
     AudioDownloadResult,
@@ -16,11 +19,40 @@ from bilivideo.core.types import (
     VideoInfo,
 )
 from bilivideo.summarize.orchestrator import SummaryOrchestrator
+from bilivideo.llm.astrbot_provider import AstrbotProvider
 from bilivideo.summarize.relevance import (
     summary_conflicts_with_transcript,
     title_conflicts_with_text,
 )
 from bilivideo.transcription.pipeline import PipelineOutput
+from bilivideo.zhihu import ZhihuPost
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("platform", ["coolapk", "zhihu"])
+async def test_post_summary_uses_selected_platform_without_model_override(platform) -> None:
+    generate = AsyncMock(return_value="内容摘要")
+    context = SimpleNamespace(llm_generate=generate)
+    selected = AstrbotProvider(context, "selected")
+    orch = SummaryOrchestrator(
+        config=PluginConfig.from_mapping({f"{platform}_summary_model": "removed"}),
+        llm=AstrbotProvider(None), coolapk_llm=selected, zhihu_llm=selected,
+        pipeline=object(), http_client=object(),
+    )
+    if platform == "coolapk":
+        post = CoolapkPost(feed_id="123", url="https://www.coolapk.com/feed/123", images=("image",))
+        note = await orch.generate_coolapk(post)
+    else:
+        post = ZhihuPost(
+            content_type="answer", content_id="123", title="标题", author="作者",
+            content="正文", source_url="https://www.zhihu.com/question/42/answer/123", images=("image",),
+        )
+        note = await orch.generate_zhihu(post)
+    assert "内容摘要" in note.markdown
+    assert generate.await_args.kwargs["chat_provider_id"] == "selected"
+    assert generate.await_args.kwargs["image_urls"] == ["image"]
+    assert generate.await_args.kwargs["session_id"] == f"BiliVideo_{platform}"
+    assert "model" not in generate.await_args.kwargs
 
 # ──────────────────────── stubs ────────────────────────
 

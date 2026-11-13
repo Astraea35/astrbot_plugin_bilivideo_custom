@@ -65,7 +65,6 @@
     "items": {
       "video_summary_mode": { "type": "string", "default": "subtitle", "options": ["subtitle", "frames", "native"], "labels": ["字幕 / 音频转写（默认）", "字幕＋抽样画面", "Gemini 原生视频"], "description": "视频总结依据", "hint": "字幕模式维持原有流程；画面模式需要图片输入能力；原生模式需要 Gemini 视频接口。" },
       "video_summary_provider": { "type": "string", "default": "", "description": "视频理解模型提供者", "hint": "留空复用主总结模型。", "_special": "select_provider" },
-      "video_summary_model": { "type": "string", "default": "", "description": "视频理解模型名称", "hint": "留空使用所选模型的默认名称。" },
       "video_processing_mode": { "type": "string", "default": "auto", "options": ["auto", "static", "agentic"], "labels": ["自动", "Static 静态", "Agentic 智能"], "description": "原生视频处理模式", "hint": "自动针对整段总结选择 Static；Agentic 需要具体模型和反代同时支持，不保证更省 token。" },
       "video_native_transport": { "type": "string", "default": "auto", "options": ["auto", "generate_content", "interactions"], "labels": ["自动", "generateContent（Static）", "Interactions"], "description": "原生视频接口", "hint": "自动使用静态接口；Agentic 通过 Interactions。按反代开放的接口选择。" },
       "video_api_base": { "type": "string", "default": "", "description": "Gemini 原生接口地址", "hint": "可选。填写反代提供的 Gemini 地址（可带 /v1beta）；留空仅复用 AstrBot 的 Gemini 原生提供者。不能填写 OpenAI 的 /chat/completions 地址。" },
@@ -81,8 +80,7 @@
     "description": "📱 酷安总结",
     "type": "object",
     "items": {
-      "coolapk_summary_provider": { "type": "string", "default": "", "description": "视觉识别模型提供者", "hint": "留空使用默认总结模型；原图会一并交给模型。", "_special": "select_provider" },
-      "coolapk_summary_model": { "type": "string", "default": "", "description": "视觉识别模型", "hint": "可选模型名称。" }
+      "coolapk_summary_provider": { "type": "string", "default": "", "description": "视觉识别模型提供者", "hint": "选择 AstrBot 已配置的模型；留空复用主总结模型，原图会一并交给模型。", "_special": "select_provider" }
     }
   },
   "zhihu": {
@@ -90,8 +88,7 @@
     "type": "object",
     "items": {
       "zhihu_cookie": { "type": "string", "default": "", "description": "知乎登录凭据", "hint": "用于读取知乎回答、问题和专栏正文；填写浏览器导出的完整登录凭据（Cookie）。", "secret": true },
-      "zhihu_summary_provider": { "type": "string", "default": "", "description": "知乎识别模型提供者", "hint": "留空使用默认总结模型；知乎正文中的图片会一并参与总结。", "_special": "select_provider" },
-      "zhihu_summary_model": { "type": "string", "default": "", "description": "知乎识别模型", "hint": "可选模型名称，留空使用所选提供者的默认模型。" }
+      "zhihu_summary_provider": { "type": "string", "default": "", "description": "知乎识别模型提供者", "hint": "选择 AstrBot 已配置的模型；留空复用主总结模型，知乎正文中的图片会一并参与总结。", "_special": "select_provider" }
     }
   },
   "render": {
@@ -186,7 +183,6 @@
       },
       "enable_dynamic_ai_summary": { "type": "bool", "default": false, "description": "动态智能总结", "hint": "为订阅推送的动态内容额外生成智能摘要，会消耗模型额度。" },
       "dynamic_summary_provider": { "type": "string", "default": "", "description": "动态摘要模型提供者", "hint": "选择 AstrBot 已配置的模型；留空则复用视频总结的模型配置。", "_special": "select_provider" },
-      "dynamic_summary_model": { "type": "string", "default": "", "description": "动态摘要专用模型名称", "hint": "部分提供者支持指定具体模型名称；留空使用所选提供者的默认模型。" },
       "enable_multimodal_dynamic_summary": { "type": "bool", "default": false, "description": "多模态动态摘要", "hint": "开启后将动态图片交给支持视觉输入的模型；不支持视觉的模型会自动降级为文字摘要" },
       "plain_push_template": { "type": "text", "default": "", "description": "纯文本推送消息模板", "hint": "非图片推送模式下的动态消息模板，留空使用默认格式。可用变量: {name}(UP主名称) {uid}(UID) {action}(动态动作，如\"投稿了新视频\") {title}(标题) {text}(正文) {url}(链接)。格式化后的空行会被自动移除。" },
       "plain_push_forward_template": { "type": "text", "default": "", "description": "纯文本推送转发内容模板", "hint": "非图片推送模式下的转发内容模板，留空使用默认格式。可用变量: {name} {uid} {title} {text} {url}，数据来源为被转发的原动态。" },

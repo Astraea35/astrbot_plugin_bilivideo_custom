@@ -41,4 +41,4 @@ def test_zhihu_model_configuration_is_parsed() -> None:
 
     assert config.zhihu_cookie == "z_c0=test"
     assert config.zhihu_summary_provider == "vision-provider"
-    assert config.zhihu_summary_model == "vision-model"
+    assert not hasattr(config, "zhihu_summary_model")

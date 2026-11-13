@@ -184,7 +184,6 @@ class PluginConfig:
     # Optional visual video understanding; existing installations stay text-only.
     video_summary_mode: str = "subtitle"
     video_summary_provider: str = ""
-    video_summary_model: str = ""
     video_processing_mode: str = "auto"
     video_native_transport: str = "auto"
     video_api_base: str = ""
@@ -196,10 +195,8 @@ class PluginConfig:
     video_max_size_mb: int = 80
     # Coolapk text-post recognition. Empty provider means reuse the default summary LLM.
     coolapk_summary_provider: str = ""
-    coolapk_summary_model: str = ""
     zhihu_cookie: str = ""
     zhihu_summary_provider: str = ""
-    zhihu_summary_model: str = ""
 
     # rendering ----------------------------------------------------------
     output_image: bool = True
@@ -255,7 +252,6 @@ class PluginConfig:
     renderer_template: str = DEFAULT_TEMPLATE
     enable_dynamic_ai_summary: bool = False
     dynamic_summary_provider: str = ""
-    dynamic_summary_model: str = ""
     enable_multimodal_dynamic_summary: bool = False
     reconnect_silent: bool = False
     task_gap_secs: int = 20
@@ -333,7 +329,6 @@ class PluginConfig:
                 flat.get("video_summary_mode"), "subtitle", options=("subtitle", "frames", "native")
             ),
             video_summary_provider=_coerce_str(flat.get("video_summary_provider"), ""),
-            video_summary_model=_coerce_str(flat.get("video_summary_model"), ""),
             video_processing_mode=_coerce_str(
                 flat.get("video_processing_mode"), "auto", options=("auto", "static", "agentic")
             ),
@@ -348,10 +343,8 @@ class PluginConfig:
             video_max_duration=_coerce_int(flat.get("video_max_duration"), 1800, lo=10, hi=10800),
             video_max_size_mb=_coerce_int(flat.get("video_max_size_mb"), 80, lo=1, hi=512),
             coolapk_summary_provider=_coerce_str(flat.get("coolapk_summary_provider"), ""),
-            coolapk_summary_model=_coerce_str(flat.get("coolapk_summary_model"), ""),
             zhihu_cookie=_coerce_str(flat.get("zhihu_cookie"), ""),
             zhihu_summary_provider=_coerce_str(flat.get("zhihu_summary_provider"), ""),
-            zhihu_summary_model=_coerce_str(flat.get("zhihu_summary_model"), ""),
             output_image=_coerce_bool(flat.get("output_image"), True),
             theme=_coerce_str(flat.get("theme"), "light", options=("light", "dark")),
             enable_auto_split=_coerce_bool(flat.get("enable_auto_split"), True),
@@ -395,7 +388,6 @@ class PluginConfig:
             renderer_template=normalize_renderer_template(flat.get("renderer_template")),
             enable_dynamic_ai_summary=_coerce_bool(flat.get("enable_dynamic_ai_summary"), False),
             dynamic_summary_provider=_coerce_str(flat.get("dynamic_summary_provider"), ""),
-            dynamic_summary_model=_coerce_str(flat.get("dynamic_summary_model"), ""),
             enable_multimodal_dynamic_summary=_coerce_bool(flat.get("enable_multimodal_dynamic_summary"), False),
             reconnect_silent=_coerce_bool(flat.get("reconnect_silent"), False),
             task_gap_secs=_coerce_int(flat.get("task_gap_secs"), 20, lo=1, hi=120),

@@ -95,13 +95,14 @@ async def test_subtitle_mode_never_downloads_video(monkeypatch, tmp_path):
 
 @pytest.mark.asyncio
 async def test_frames_send_ordered_timestamps_and_images(monkeypatch, tmp_path):
-    orch, llm, _, media = make_orchestrator(monkeypatch, tmp_path)
+    orch, llm, _, media = make_orchestrator(monkeypatch, tmp_path, video_summary_model="removed")
     note = await orch.generate(URL)
     assert note.source_mode == "frames"
     assert "抽样画面" in note.markdown
     assert "第1张=00:07" in llm.chat.call_args.args[0]
     assert "第2张=00:22" in llm.chat.call_args.args[0]
     assert len(llm.chat.call_args.kwargs["image_urls"]) == 2
+    assert "model" not in llm.chat.call_args.kwargs
     assert media.prepared == media.cleaned == 1
 
 
@@ -237,7 +238,10 @@ def test_resolve_astrbot_native_provider_inherits_endpoint_headers_and_model():
         request_headers={"X-Channel": "selected"},
     )
     context = SimpleNamespace(get_provider_by_id=lambda key: provider)
-    settings = resolve_gemini_settings(AstrbotProvider(context, "selected"), PluginConfig())
+    settings = resolve_gemini_settings(
+        AstrbotProvider(context, "selected"),
+        PluginConfig.from_mapping({"video_summary_model": "removed"}),
+    )
     assert settings.api_base == "https://reverse.example/gemini"
     assert settings.model == "gemini-alias" and settings.headers == {"X-Channel": "selected"}
     assert "selected-key" not in repr(settings)

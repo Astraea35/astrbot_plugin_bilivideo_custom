@@ -558,7 +558,6 @@ class DynamicListener:
                 self._dynamic_summary_prompt(payload),
                 session_id=f"BiliVideo_dynamic_{dyn_id or payload.uid}",
                 image_urls=self._dynamic_summary_image_urls(payload),
-                model=self.config.dynamic_summary_model,
             )
         except LLMError as exc:
             logger.warning(f"动态 AI 摘要生成失败: {exc}")

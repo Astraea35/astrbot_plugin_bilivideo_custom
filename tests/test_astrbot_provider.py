@@ -33,7 +33,7 @@ class _VisionProvider(_FakeProvider):
         prompt: str,
         session_id: str | None = None,
         image_urls: list[str],
-        model: str = "",
+        model: str = "platform-model",
     ) -> _FakeResponse:
         self.calls.append(
             {
@@ -136,12 +136,12 @@ async def test_none_context_raises_llm_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_vision_provider_receives_images_and_model() -> None:
+async def test_vision_provider_receives_images_and_keeps_platform_model() -> None:
     vision = _VisionProvider("vision")
     context = _FakeContext(vision, {})
 
     answer = await AstrbotProvider(context).chat(
-        "describe", image_urls=("https://example.com/a.png",), model="vision-model"
+        "describe", image_urls=("https://example.com/a.png",)
     )
 
     assert answer == "vision"
@@ -150,6 +150,6 @@ async def test_vision_provider_receives_images_and_model() -> None:
             "prompt": "describe",
             "session_id": "BiliVideo_plugin",
             "images": "https://example.com/a.png",
-            "model": "vision-model",
+            "model": "platform-model",
         }
     ]

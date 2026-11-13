@@ -18,7 +18,6 @@ class LLMProvider(Protocol):
         *,
         session_id: str | None = None,
         image_urls: Sequence[str] = (),
-        model: str = "",
     ) -> str:
         ...
 
@@ -73,14 +72,12 @@ def build_provider(
                 *,
                 session_id: str | None = None,
                 image_urls: Sequence[str] = (),
-                model: str = "",
             ) -> str:
                 try:
                     return await self.primary.chat(
                         prompt,
                         session_id=session_id,
                         image_urls=image_urls,
-                        model=model,
                     )
                 except Exception as exc:
                     errors = [f"主力模型报错: {exc}"]
