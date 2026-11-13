@@ -14,12 +14,20 @@ from bilivideo.llm.astrbot_provider import AstrbotProvider
 from bilivideo.llm.provider import build_provider
 
 
+def test_selected_platform_is_taken_from_parsed_config_without_raw_config() -> None:
+    provider = build_provider(
+        PluginConfig(llm_provider="astrbot_custom", astrbot_provider_id="selected"),
+        astrbot_context=None,
+    )
+    assert provider.provider_id == "selected"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("nested", [False, True])
 @pytest.mark.parametrize("mode,expected", [("astrbot", ""), ("astrbot_custom", "selected"), ("openai_compatible", "")])
 async def test_provider_modes_use_astrbot_including_legacy_config(nested: bool, mode: str, expected: str) -> None:
     block = {
-        "llm_provider": mode, "astrbot_provider_id": "selected",
+        "llm_provider": mode, "astrbot_provider_id": "selected", "llm_provider_id": "removed",
         "llm_api_base": "https://unused.example/v1", "llm_api_key": "unused-key",
     }
     raw_config = {"llm": block} if nested else block
@@ -41,13 +49,12 @@ async def test_provider_modes_use_astrbot_including_legacy_config(nested: bool, 
 @pytest.mark.parametrize("nested", [False, True])
 @pytest.mark.parametrize("backup", ["backup", ["backup"]])
 async def test_fallback_uses_native_provider_config_without_primary_model(nested: bool, backup) -> None:
-    llm_config = {"enable_fallback": True, "backup_provider_id": backup}
+    llm_config = {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": backup}
     raw_config = {"llm": llm_config} if nested else llm_config
     generate = AsyncMock(side_effect=[RuntimeError("primary unavailable"), "backup result"])
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -78,12 +85,11 @@ async def test_fallback_uses_native_provider_config_without_primary_model(nested
 
 @pytest.mark.asyncio
 async def test_primary_success_does_not_call_backup() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": ["backup", "backup-2"]}}
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": ["backup", "backup-2"]}}
     generate = AsyncMock(return_value="primary result")
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -95,12 +101,11 @@ async def test_primary_success_does_not_call_backup() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enable_fallback,backup_id", [(False, "backup"), (False, ["backup"]), (True, ""), (True, [])])
 async def test_disabled_or_unselected_backup_is_not_called(enable_fallback: bool, backup_id) -> None:
-    raw_config = {"llm": {"enable_fallback": enable_fallback, "backup_provider_id": backup_id}}
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": enable_fallback, "backup_provider_id": backup_id}}
     generate = AsyncMock(side_effect=RuntimeError("primary unavailable"))
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -112,12 +117,11 @@ async def test_disabled_or_unselected_backup_is_not_called(enable_fallback: bool
 
 @pytest.mark.asyncio
 async def test_both_native_providers_failing_preserves_errors() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": "backup"}}
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": "backup"}}
     generate = AsyncMock(side_effect=[RuntimeError("primary unavailable"), RuntimeError("backup unavailable")])
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -131,12 +135,11 @@ async def test_both_native_providers_failing_preserves_errors() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_does_not_call_backup() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": "backup"}}
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": "backup"}}
     generate = AsyncMock(side_effect=asyncio.CancelledError)
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -148,14 +151,13 @@ async def test_cancellation_does_not_call_backup() -> None:
 
 @pytest.mark.asyncio
 async def test_multiple_backups_run_in_order_and_stop_on_success() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": [
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": [
         "primary", " backup-1 ", "backup-1", "", "backup-2", "backup-3",
     ]}}
     generate = AsyncMock(side_effect=[RuntimeError("primary down"), RuntimeError("backup-1 down"), "success"])
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -170,12 +172,11 @@ async def test_multiple_backups_run_in_order_and_stop_on_success() -> None:
 
 @pytest.mark.asyncio
 async def test_all_backups_failing_preserves_each_error() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": ["backup-1", "backup-2"]}}
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": ["backup-1", "backup-2"]}}
     generate = AsyncMock(side_effect=[RuntimeError("primary down"), RuntimeError("first down"), RuntimeError("second down")])
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 
@@ -189,12 +190,11 @@ async def test_all_backups_failing_preserves_each_error() -> None:
 
 @pytest.mark.asyncio
 async def test_backup_cancellation_does_not_try_later_models() -> None:
-    raw_config = {"llm": {"enable_fallback": True, "backup_provider_id": ["backup-1", "backup-2"]}}
+    raw_config = {"llm": {"llm_provider": "astrbot_custom", "astrbot_provider_id": "primary", "enable_fallback": True, "backup_provider_id": ["backup-1", "backup-2"]}}
     generate = AsyncMock(side_effect=[RuntimeError("primary down"), asyncio.CancelledError()])
     provider = build_provider(
         PluginConfig.from_mapping(raw_config),
         astrbot_context=SimpleNamespace(llm_generate=generate),
-        provider_id="primary",
         raw_config=raw_config,
     )
 

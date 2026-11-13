@@ -27,7 +27,6 @@ def build_provider(
     config: PluginConfig, 
     *, 
     astrbot_context: object | None, 
-    provider_id: str = "",
     raw_config: dict | None = None
 ) -> LLMProvider:
     """Return a provider with optional ordered AstrBot fallback models."""
@@ -38,9 +37,9 @@ def build_provider(
     from .astrbot_provider import AstrbotProvider
 
     if config.llm_provider == "astrbot_custom":
-        final_provider_id = str(raw_llm_block.get("astrbot_provider_id", "")).strip()
+        final_provider_id = config.astrbot_provider_id
     else:
-        final_provider_id = provider_id
+        final_provider_id = ""
     primary = AstrbotProvider(astrbot_context, provider_id=final_provider_id)
 
     enable_fallback = bool(raw_llm_block.get("enable_fallback", False))

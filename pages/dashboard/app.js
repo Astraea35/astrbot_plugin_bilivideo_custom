@@ -7,7 +7,6 @@ const fieldGroups = {
   aiMain: [
     { key: "llm_provider", label: "主模型提供者", hint: "接口地址、密钥和生成参数统一在 AstrBot 中配置", type: "select", options: [["astrbot", "AstrBot 当前默认模型"], ["astrbot_custom", "AstrBot 指定平台"]] },
     { key: "astrbot_provider_id", label: "AstrBot 平台标识", hint: "例如 deepseek、openai", type: "text" },
-    { key: "llm_provider_id", label: "内置模型标识", hint: "留空使用当前默认模型", type: "text" },
     { key: "enable_fallback", label: "启用故障备用重试", hint: "主模型失败时按顺序尝试备用模型", type: "switch" },
     { key: "backup_provider_id", label: "备用模型", hint: "按 Ctrl / Command 多选；按列表顺序尝试，可在 AstrBot 插件配置页调整顺序。修改后重载插件生效。", type: "select", multiple: true, options: [] },
     { key: "bangumi_token", label: "番组计划访问令牌", hint: "可选，留空保持当前令牌", type: "password", secret: true },

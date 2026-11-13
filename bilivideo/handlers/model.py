@@ -1,13 +1,12 @@
 """`/总结模型` handler: list and switch the AstrBot built-in LLM model (issue #8).
 
-Only meaningful in `astrbot` provider mode. AstrBot's static config schema
-cannot render a dynamic dropdown of configured models, so this command lists
-the available providers (by id + model) and writes the selected provider back
-to the AstrBot plugin configuration.
+Lists configured providers and updates the same platform selection used by
+the plugin settings. Resetting switches back to AstrBot's current default.
 """
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import AsyncIterator
 from dataclasses import replace
 
@@ -34,7 +33,8 @@ async def handle_model(services: BiliVideoServices, event: object) -> AsyncItera
         return
 
     arg = parse_command_args(getattr(event, "message_str", "") or "")
-    current = getattr(services.llm, "provider_id", "") or ""
+    primary = getattr(services.llm, "primary", services.llm)
+    current = getattr(primary, "provider_id", "") or ""
 
     if not arg:
         yield event.plain_result(_format_list(available, current))  # type: ignore[attr-defined]
@@ -93,6 +93,7 @@ def _format_list(available: list[tuple[str, str]], current: str) -> str:
 
 
 async def _apply_provider_id(services: BiliVideoServices, provider_id: str) -> None:
+    mode = "astrbot_custom" if provider_id else "astrbot"
     target = services.llm
     # 如果被 FallbackLLMProvider 包装，穿透到主 Provider
     if hasattr(target, "primary"):
@@ -106,9 +107,12 @@ async def _apply_provider_id(services: BiliVideoServices, provider_id: str) -> N
         if not isinstance(llm_config, dict):
             llm_config = {}
             raw_config["llm"] = llm_config
-        llm_config["llm_provider_id"] = provider_id
+        llm_config["llm_provider"] = mode
+        llm_config["astrbot_provider_id"] = provider_id
 
-    services.config = replace(services.config, llm_provider_id=provider_id)
-    context = getattr(services, "astrbot_context", None)
-    if context is not None and hasattr(context, "save_config"):
-        await context.save_config()
+    services.config = replace(services.config, llm_provider=mode, astrbot_provider_id=provider_id)
+    save_config = getattr(raw_config, "save_config", None)
+    if callable(save_config):
+        result = save_config()
+        if inspect.isawaitable(result):
+            await result

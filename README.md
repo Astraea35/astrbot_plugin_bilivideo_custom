@@ -1,3 +1,5 @@
+v2.4.28：移除重复的“指定内置模型标识”设置，默认模式跟随 AstrBot 当前默认模型，指定模型统一使用“AstrBot 指定平台”。`/总结模型` 命令同步修改该平台选择，重载后保持生效。旧版内置模型标识不再读取，原先使用该字段的用户请改在指定平台中选择。
+
 v2.4.27：移除插件独立的自定义 OpenAI 兼容接口及地址、密钥、模型名称和温度配置，统一使用 AstrBot 当前默认模型或指定平台，保留备用模型切换。旧版自定义接口模式自动回到 AstrBot 默认模式，旧接口字段不再使用或回显；Gemini 原生视频专用配置保留。
 
 v2.4.26：新增可选视频理解，支持字幕＋抽样画面、Gemini 原生视频及自动 / Static / Agentic。默认仍使用字幕总结，原生配置页和插件控制台可切换；渠道不支持时按设置回退并标明实际依据。[配置与使用说明](docs/video-understanding.md)
@@ -31,7 +33,7 @@ v2.4.16：QQ 总结图片会按实际像素安全分图，单边最多 28000、�
 [![AstrBot](https://img.shields.io/badge/AstrBot-v4.0%2B-blueviolet)](https://astrbot.app/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-v2.4.27-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.4.28-orange)](CHANGELOG.md)
 
 </div>
 

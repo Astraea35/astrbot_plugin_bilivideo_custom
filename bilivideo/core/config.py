@@ -166,7 +166,7 @@ class PluginConfig:
 
     # llm ----------------------------------------------------------------
     llm_provider: str = "astrbot"
-    llm_provider_id: str = ""
+    astrbot_provider_id: str = ""
 
     # summary ------------------------------------------------------------
     note_style: str = "professional"
@@ -303,7 +303,7 @@ class PluginConfig:
             processing_timeout=_coerce_int(flat.get("processing_timeout"), 300, lo=60, hi=1800),
             user_cooldown_seconds=_coerce_int(flat.get("user_cooldown_seconds"), 8, lo=0, hi=600),
             llm_provider=_coerce_str(flat.get("llm_provider"), "astrbot", options=LLM_PROVIDERS),
-            llm_provider_id=_coerce_str(flat.get("llm_provider_id"), ""),
+            astrbot_provider_id=_coerce_str(flat.get("astrbot_provider_id"), ""),
             note_style=_coerce_str(flat.get("note_style"), "professional", options=NOTE_STYLES),
             enable_link=_coerce_bool(flat.get("enable_link"), True),
             enable_summary=_coerce_bool(flat.get("enable_summary"), True),

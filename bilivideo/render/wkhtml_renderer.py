@@ -241,13 +241,14 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
     def _get_current_model(self) -> str:
         llm = getattr(self._services, "llm", None) if self._services else None
         if llm:
+            llm = getattr(llm, "primary", llm)
             model = getattr(llm, "provider_id", None)
             if model:
                 return str(model)
         raw_cfg = getattr(self._services, "raw_config", {}) if self._services else {}
         llm_cfg = raw_cfg.get("llm", {}) if isinstance(raw_cfg, dict) else {}
-        if isinstance(llm_cfg, dict):
-            return str(llm_cfg.get("astrbot_provider_id") or llm_cfg.get("llm_provider_id") or "AstrBot 默认模型")
+        if isinstance(llm_cfg, dict) and llm_cfg.get("llm_provider") == "astrbot_custom":
+            return str(llm_cfg.get("astrbot_provider_id") or "AstrBot 默认模型")
         return "AstrBot 默认模型"
 
     def _cleanup_old_cache(self) -> None:

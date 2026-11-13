@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from bilivideo.webui import PluginWebUI
+from bilivideo.core.config import PluginConfig
+from bilivideo.llm.provider import build_provider
 
 
 @pytest.mark.asyncio
@@ -93,3 +95,28 @@ async def test_legacy_openai_fields_are_not_exposed_or_editable(tmp_path, monkey
     assert not removed & state["secret_present"].keys()
     assert "old-secret" not in repr(state)
     assert ui._candidate_with_settings({"llm_api_key": "replacement"}) == config
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize("mode,expected", [("astrbot", ""), ("astrbot_custom", "selected")])
+async def test_only_platform_selection_controls_the_model(tmp_path, monkeypatch, nested, mode, expected) -> None:
+    monkeypatch.setattr("bilivideo.webui.json_response", lambda payload: payload)
+    block = {"llm_provider": "astrbot", "llm_provider_id": "removed"}
+    config = {"llm": block} if nested else block
+    services = SimpleNamespace(raw_config={})
+    ui = PluginWebUI(SimpleNamespace(config=config), object(), services, str(tmp_path))
+    state = await ui.get_state()
+    assert "llm_provider_id" not in state["config"]
+    assert ui._candidate_with_settings({"llm_provider_id": "replacement"}) == config
+
+    monkeypatch.setattr("bilivideo.webui.request", SimpleNamespace(json=AsyncMock(return_value={
+        "settings": {"llm_provider": mode, "astrbot_provider_id": "selected"},
+    })))
+    result = await ui.save_settings()
+    assert result["saved"] is True and result["restart_required"] is True
+    assert "llm_provider_id" not in result["config"]
+    parsed = PluginConfig.from_mapping(config)
+    assert services.config == parsed
+    provider = build_provider(parsed, astrbot_context=None, raw_config=config)
+    assert provider.provider_id == expected

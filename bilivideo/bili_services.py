@@ -80,11 +80,9 @@ class BiliVideoServices:
         self.pipeline = TranscriptPipeline(self.downloader, self.transcriber, self.http_client)
 
         # AstrBot configuration is the sole persisted source of plugin settings.
-        initial_provider_id = config.llm_provider_id
         self.llm: LLMProvider = build_provider(
             config,
             astrbot_context=astrbot_context,
-            provider_id=initial_provider_id,
             raw_config=self.raw_config
         )
 
