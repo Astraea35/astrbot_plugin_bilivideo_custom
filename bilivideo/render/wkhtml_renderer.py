@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import math
 import re
 import time
@@ -151,9 +152,12 @@ code,pre,kbd,samp{{font-size:{int(base_font_size*.85)}px!important}}
 </style>"""
         full_html = full_html.replace("</head>", css + "</head>") if "</head>" in full_html else css + full_html
         model = self._get_current_model()
-        footer_left = f"🤖 {model} &nbsp;·&nbsp; Powered by <span>biliVideo</span>"
+        footer_left = f"🤖 {html.escape(model)} &nbsp;·&nbsp; Powered by <span>biliVideo</span>"
         if '<div class="ftxt">' in full_html:
-            full_html = re.sub(r'<div class="ftxt">.*?</div>', f'<div class="ftxt">{footer_left}</div>', full_html, flags=re.S)
+            full_html = re.sub(
+                r'<div class="ftxt">.*?</div>', lambda _: f'<div class="ftxt">{footer_left}</div>',
+                full_html, flags=re.S,
+            )
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         started = time.monotonic()

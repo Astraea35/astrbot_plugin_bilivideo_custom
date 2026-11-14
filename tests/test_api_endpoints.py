@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 
 from bilivideo.api import endpoints
-from bilivideo.core.constants import ENDPOINT_SEARCH_TYPE, ENDPOINT_SEARCH_TYPE_WBI
+from bilivideo.core.constants import (
+    ENDPOINT_SEARCH_TYPE, ENDPOINT_SEARCH_TYPE_WBI,
+    ENDPOINT_USER_VIDEOS, ENDPOINT_USER_VIDEOS_LEGACY,
+)
 from bilivideo.core.exceptions import BilibiliAPIError, NetworkError
 
 
@@ -40,9 +43,28 @@ async def test_latest_videos_api_error_returns_empty(monkeypatch) -> None:
         return {**params, "w_rid": "x"}
 
     monkeypatch.setattr(endpoints, "sign_params", _signed)
-    client = _StubClient([BilibiliAPIError(-401, "auth")])
+    client = _StubClient([BilibiliAPIError(-401, "auth"), NetworkError("legacy down")])
 
     assert await endpoints.get_latest_videos(client, "123") == []
+    assert [url for url, _ in client.calls] == [ENDPOINT_USER_VIDEOS, ENDPOINT_USER_VIDEOS_LEGACY]
+
+
+@pytest.mark.asyncio
+async def test_latest_videos_recovers_through_legacy_endpoint(monkeypatch) -> None:
+    async def _signed(params, *, cookies=None):
+        return {**params, "w_rid": "x"}
+
+    monkeypatch.setattr(endpoints, "sign_params", _signed)
+    client = _StubClient([
+        BilibiliAPIError(-401, "auth"),
+        {"data": {"list": {"vlist": [{"bvid": "BV1xx411c7mD", "title": "备用接口视频"}]}}},
+    ])
+
+    videos = await endpoints.get_latest_videos(client, "123")
+
+    assert [(v.bvid, v.title) for v in videos] == [("BV1xx411c7mD", "备用接口视频")]
+    assert [url for url, _ in client.calls] == [ENDPOINT_USER_VIDEOS, ENDPOINT_USER_VIDEOS_LEGACY]
+    assert "w_rid" not in client.calls[1][1]
 
 
 @pytest.mark.asyncio

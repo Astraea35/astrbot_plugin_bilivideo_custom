@@ -133,8 +133,8 @@ async def handle_space_view(services: BiliVideoServices, event: object) -> Async
     for idx, v in enumerate(vlist, start=1):
         SPACE_PAGINATION_CACHE[origin]["video_map"][str(idx)] = v.get("bvid", "")
         html_buffer.append(
-            f'<div style="position: relative; background: rgba(128,128,128,0.05); border-radius: 8px; border: 1px solid rgba(128,128,128,0.15); padding: 8px; display: flex; flex-direction: column; justify-content: space-between;">'
-            f'  <div style="position: absolute; top: 12px; left: 12px; background: #00a1d6; color: white; padding: 3px 9px; border-radius: 6px; font-weight: bold; font-size: 14px; z-index: 10;">{idx}</div>'
+            f'<div style="position: relative; background-color: rgba(128,128,128,0.05); border-radius: 8px; border: 1px solid rgba(128,128,128,0.15); padding: 8px; display: flex; flex-direction: column; justify-content: space-between;">'
+            f'  <div style="position: absolute; top: 12px; left: 12px; background-color: #00a1d6; color: white; padding: 3px 9px; border-radius: 6px; font-weight: bold; font-size: 14px; z-index: 10;">{idx}</div>'
             f'  <img src="{v.get("pic")}" style="width: 100%; aspect-ratio: 16/10; border-radius: 6px; object-fit: cover;" referrerpolicy="no-referrer" />'
             f'  <p style="margin: 6px 0 2px 0; font-size: 13px; font-weight: bold; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; height: 34px; color: var(--text-color);">{v.get("title")}</p>'
             f"</div>"

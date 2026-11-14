@@ -46,8 +46,51 @@ def _build_font_faces() -> str:
 
 
 def sanitize_html(html_str: str) -> str:
-    # 保持原样防御性清洗
-    return html_str
+    """Clean untrusted Markdown HTML before adding the trusted page template."""
+    try:
+        import nh3
+    except ImportError:
+        # Plugin updates may precede dependency installation; never pass raw HTML through.
+        logger.warning("缺少 nh3 安全清洗依赖，暂以转义文本渲染，请更新插件依赖")
+        return html.escape(html_str)
+
+    return nh3.clean(
+        html_str,
+        tags={
+            "a", "abbr", "b", "blockquote", "br", "caption", "code", "dd", "del",
+            "details", "div", "dl", "dt", "em", "h1", "h2", "h3", "h4", "h5", "h6",
+            "hr", "i", "img", "kbd", "li", "ol", "p", "pre", "s", "samp", "small",
+            "span", "strong", "sub", "summary", "sup", "table", "tbody", "td", "th",
+            "thead", "tr", "u", "ul",
+        },
+        clean_content_tags={
+            "script", "style", "iframe", "object", "embed", "svg", "math", "template",
+            "noscript", "form",
+        },
+        attributes={
+            "*": {"class", "title", "style"},
+            "a": {"href"},
+            "img": {"src", "alt", "width", "height", "loading", "referrerpolicy"},
+            "td": {"align", "colspan", "rowspan"},
+            "th": {"align", "colspan", "rowspan", "scope"},
+            "ol": {"start", "reversed"},
+            "li": {"value"},
+        },
+        # Preserve the built-in video grid without allowing URL-bearing CSS properties.
+        filter_style_properties={
+            "align-items", "aspect-ratio", "background-color", "border", "border-bottom",
+            "border-left", "border-radius", "border-right", "border-top", "box-sizing",
+            "color", "display", "flex", "flex-direction", "flex-wrap", "font-family",
+            "font-size", "font-weight", "gap", "grid-template-columns", "height",
+            "justify-content", "left", "line-height", "margin", "margin-bottom",
+            "margin-left", "margin-right", "margin-top", "max-height", "max-width",
+            "min-height", "min-width", "object-fit", "overflow", "padding",
+            "position", "text-align", "top", "vertical-align", "white-space", "width",
+            "z-index", "-webkit-box-orient", "-webkit-line-clamp",
+        },
+        url_schemes={"http", "https", "mailto"},
+        url_relative="deny",
+    )
 
 
 def highlight_timestamps(html_str: str) -> str:
@@ -297,6 +340,6 @@ def build_full_html(
         f"<div class=\"content\">{body_html}</div>"
         "<div class=\"footer\">"
         "<div class=\"ftxt\">Powered by <span>biliVideo</span> · AI 视频总结助手</div>"
-        f"<div class=\"ftime\">{footer_time}</div>"
+        f"<div class=\"ftime\">{html.escape(footer_time)}</div>"
         "</div></body></html>"
     )

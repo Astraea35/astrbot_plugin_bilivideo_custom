@@ -367,61 +367,61 @@ class BiliVideoPlugin(Star):
             yield resp
 
     # ========== 空间相关命令（带斜杠） ==========
-    @filter.command("主页视频", alias={"主页"})
+    @filter.command("主页视频", alias={"主页", "bvspace"})
     async def cmd_space_view(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_space_view(self._services, event):
             yield resp
 
-    @filter.command("访问主页", alias={"访主"})
+    @filter.command("访问主页", alias={"访主", "bvvisit"})
     async def cmd_visit_homepage(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_visit_homepage(self._services, event):
             yield resp
 
-    @filter.command("视频")
+    @filter.command("视频", alias={"bvplay"})
     async def cmd_video_select(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_video_select(self._services, event):
             yield resp
 
-    @filter.command("跳页", alias={"页码"})
+    @filter.command("跳页", alias={"页码", "bvpage"})
     async def cmd_space_page_jump(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_space_page_jump(self._services, event):
             yield resp
 
-    @filter.command("下一页", alias={"下页"})
+    @filter.command("下一页", alias={"下页", "bvnext"})
     async def cmd_next_page(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_space_page_turn(self._services, event, direction=1):
             yield resp
 
-    @filter.command("上一页", alias={"上页"})
+    @filter.command("上一页", alias={"上页", "bvprev"})
     async def cmd_prev_page(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_space_page_turn(self._services, event, direction=-1):
             yield resp
 
     # ==================== 新增命令 ====================
 
-    @filter.command("bili_global_list", alias={"全局列表"})
+    @filter.command("bili_global_list", alias={"全局列表", "bvglob"})
     async def cmd_global_list(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_global_list(self._services, event):
             yield resp
 
-    @filter.command("bili_global_del", alias={"全局删除"})
+    @filter.command("bili_global_del", alias={"全局删除", "bvgdel"})
     async def cmd_global_del(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_global_del(self._services, event):
             yield resp
 
-    @filter.command("bili_global_sub", alias={"全局订阅"})
+    @filter.command("bili_global_sub", alias={"全局订阅", "bvgsub"})
     async def cmd_global_sub(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_global_sub(self._services, event):
             yield resp
 
-    @filter.command("bili_card_style", alias={"卡片样式"})
+    @filter.command("bili_card_style", alias={"卡片样式", "bvcard"})
     async def cmd_card_style(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_card_style(self._services, event):
             yield resp
 
     # ==================== 新增：单独切换 live_atall ====================
 
-    @filter.command("订阅开播@全体", alias={"开播@全体", "直播@全体"})
+    @filter.command("订阅开播@全体", alias={"开播@全体", "直播@全体", "bvlive"})
     async def cmd_live_atall_toggle(self, event: AstrMessageEvent) -> AsyncIterator[object]:
         async for resp in handlers.handle_live_atall_toggle(self._services, event):
             yield resp

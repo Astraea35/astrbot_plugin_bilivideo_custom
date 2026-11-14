@@ -21,6 +21,13 @@ HELP_TEMPLATE = """\
   /总结 (bv) <{platform_scope}链接或BV号>
   /最新视频 (latest) <UP主UID、空间链接或昵称>
 
+📌 主页点播:
+  /主页视频 (bvspace) <UP主UID或昵称> [页码]
+  /访问主页 (bvvisit) <UP主UID或昵称>
+  /视频 (bvplay) <序号>
+  /跳页 (bvpage) <页码>
+  /下一页 (bvnext) /上一页 (bvprev)
+
 📌 订阅管理:
   /订阅 (sub) <UP主UID或昵称>
   /取消订阅 (unsub) <UP主UID或昵称>
@@ -30,6 +37,11 @@ HELP_TEMPLATE = """\
 📌 订阅会话管理（管理员）:
   /推送列表 (pushls)
   /移除推送 (rmpush) <序号>
+  /bili_global_list (bvglob)
+  /bili_global_del (bvgdel) <会话UMO>
+  /bili_global_sub (bvgsub) <会话UMO> <UP主UID> [过滤器...]
+  /bili_card_style (bvcard) [样式]
+  /订阅开播@全体 (bvlive) <UP主UID> [开/关]
 
 📌 自动识别:
   /识别开关 (bvdetect)
